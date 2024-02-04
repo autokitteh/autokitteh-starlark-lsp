@@ -15,6 +15,8 @@ func (a *Analyzer) signatureInformation(doc document.Document, node *sitter.Node
 	var found bool
 	fnName := args.fnName
 
+	// first try to find non-typed functions, e.g. local/global scope and builtins
+	// NOTE that functions imported from builtins have a dot in their name denoting imported path, e.g. dir.file.func, but those functiosn aren't methods
 	for n := node; n != nil && !query.IsModuleScope(doc, n); n = n.Parent() {
 		sig, found = query.Function(doc, n, fnName)
 		if found {
@@ -30,31 +32,33 @@ func (a *Analyzer) signatureInformation(doc document.Document, node *sitter.Node
 		sig, found = a.builtins.Functions[fnName]
 	}
 
-	if !found && strings.Contains(fnName, ".") {
-		ind := strings.LastIndex(fnName, ".")
-
-		mName := fnName[ind+1:]
-		sig = a.builtins.Methods[mName]
-		if sig.Name != "" {
-			meth, found := a.checkForTypedMethod(doc, node, mName, args)
-			if found {
-				sig = meth
-			}
-		}
-
-		// ak: try to find original func signature for rebinded sybol --------
-		//
-		// FIXME. rewrite with types and methods. Not working now :(
-		if !found {
-			preDotName := fnName[:ind]
-			sym := SymbolMatching(doc.Symbols(), preDotName)
-			if akIsBindedSymbol(sym) {
-				buitinSym := SymbolMatching(a.builtins.Symbols, sym.Detail)
-				sig, _ = a.builtins.Functions[buitinSym.Name+"."+mName]
-			}
-		} // -----------------------------------------------------------------
+	if found {
+		return sig, sig.Name != ""
 	}
 
+	ind := strings.LastIndex(fnName, ".")
+	if ind == -1 {
+		return sig, false
+	}
+	mName := fnName[ind+1:]
+
+	// handle AK rebinded builtins -------------------------------------------
+	preDotName := fnName[:ind]
+	sym := SymbolMatching(doc.Symbols(), preDotName)
+	if akIsBindedSymbol(sym) {
+		buitinSym := SymbolMatching(a.builtins.Symbols, sym.Detail)
+		sig, _ = a.builtins.Functions[buitinSym.Name+"."+mName]
+		return sig, sig.Name != ""
+	} // ---------------------------------------------------------------------
+
+	// at last, try to find whether it's a method
+	sig = a.builtins.Methods[mName]
+	if sig.Name != "" {
+		method, found := a.findTypedMethodForNode(doc, node, mName, args)
+		if found {
+			sig = method
+		}
+	}
 	return sig, sig.Name != ""
 }
 
