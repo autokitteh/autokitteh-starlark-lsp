@@ -14,6 +14,9 @@ import (
 )
 
 func SymbolMatching(symbols []query.Symbol, name string) query.Symbol {
+	if name == "" {
+		return query.Symbol{}
+	}
 	for _, sym := range symbols {
 		if sym.Name == name {
 			return sym
@@ -36,6 +39,9 @@ func akIsBindedSymbol(sym query.Symbol) bool {
 
 // find and return either symbol or resolved binded symbol
 func akSymbolMatching(symbols []query.Symbol, name string) query.Symbol {
+	if name == "" {
+		return query.Symbol{}
+	}
 	sym := SymbolMatching(symbols, name)
 	if akIsBindedSymbol(sym) {
 		return SymbolMatching(symbols, sym.Detail)
