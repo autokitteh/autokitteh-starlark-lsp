@@ -69,12 +69,8 @@ func (a *Analyzer) checkForTypedMethod(doc document.Document, node *sitter.Node,
 		node = node.Parent()
 	}
 	expr := a.findObjectExpression([]*sitter.Node{node}, afterDot)
-	if t := a.analyzeType(doc, expr); t != "" {
-		if ty, ok := a.builtins.Types[t]; ok {
-			return ty.FindMethod(methodName)
-		}
-	}
-	return query.Signature{}, false
+	typeName := a.analyzeType(doc, expr)
+	return a.findTypeMethod(typeName, methodName)
 }
 
 func (a *Analyzer) SignatureHelp(doc document.Document, pos protocol.Position) *protocol.SignatureHelp {
