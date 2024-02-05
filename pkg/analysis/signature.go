@@ -52,17 +52,29 @@ func (a *Analyzer) signatureInformation(doc document.Document, node *sitter.Node
 	} // ---------------------------------------------------------------------
 
 	// at last, try to find whether it's a method
-	sig = a.builtins.Methods[mName]
-	if sig.Name != "" {
-		method, found := a.findTypedMethodForNode(doc, node, mName, args)
-		if found {
-			sig = method
+	if !found && strings.Contains(fnName, ".") {
+		sig = a.builtins.Methods[mName]
+		if sig.Name != "" {
+			method, found := a.findTypedMethodForNode(doc, node, mName, args)
+			if found {
+				sig = method
+			}
 		}
 	}
 	return sig, sig.Name != ""
 }
 
-func (a *Analyzer) checkForTypedMethod(doc document.Document, node *sitter.Node, methodName string, args callWithArguments) (query.Signature, bool) {
+func (a *Analyzer) findTypedMethod(typeName string, methodName string) (query.Signature, bool) {
+	sig := query.Signature{}
+	if typeName != "" && methodName != "" {
+		if t, ok := a.builtins.Types[typeName]; ok {
+			return t.FindMethod(methodName)
+		}
+	}
+	return sig, false
+}
+
+func (a *Analyzer) findTypedMethodForNode(doc document.Document, node *sitter.Node, methodName string, args callWithArguments) (query.Signature, bool) {
 	afterDot := node.EndPoint() // assume that node passed is the object node
 	afterDot.Column += 1
 
@@ -76,7 +88,7 @@ func (a *Analyzer) checkForTypedMethod(doc document.Document, node *sitter.Node,
 
 	expr := a.findObjectExpression([]*sitter.Node{node}, afterDot)
 	typeName := a.analyzeType(doc, expr)
-	return a.findTypeMethod(typeName, methodName)
+	return a.findTypedMethod(typeName, methodName)
 }
 
 func (a *Analyzer) SignatureHelp(doc document.Document, pos protocol.Position) *protocol.SignatureHelp {

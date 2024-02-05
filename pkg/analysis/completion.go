@@ -402,17 +402,12 @@ func (a *Analyzer) analyzeType(doc document.Document, node *sitter.Node) string 
 	return ""
 }
 
-func (a *Analyzer) findTypeMethod(typeName string, methodName string) (query.Signature, bool) {
-	sig := query.Signature{}
-	if typeName != "" && methodName != "" {
-		if t, ok := a.builtins.Types[typeName]; ok {
-			return t.FindMethod(methodName)
 		}
 	}
 	return sig, false
 }
 
-func (a *Analyzer) availableMembersForType(t string) []query.Symbol {
+func (a *Analyzer) availableMembers(t string) []query.Symbol {
 	if t != "" {
 		if class, found := a.builtins.Types[t]; found {
 			return class.Members
@@ -427,7 +422,7 @@ func (a *Analyzer) availableMembersForType(t string) []query.Symbol {
 
 func (a *Analyzer) availableMembersForNode(doc document.Document, node *sitter.Node) []query.Symbol {
 	t := a.analyzeType(doc, node)
-	return a.availableMembersForType(t)
+	return a.availableMembers(t)
 }
 
 func (a *Analyzer) FindDefinition(doc document.Document, node *sitter.Node, name string) (query.Symbol, bool) {
