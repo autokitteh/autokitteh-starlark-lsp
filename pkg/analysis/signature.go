@@ -63,11 +63,17 @@ func (a *Analyzer) signatureInformation(doc document.Document, node *sitter.Node
 }
 
 func (a *Analyzer) checkForTypedMethod(doc document.Document, node *sitter.Node, methodName string, args callWithArguments) (query.Signature, bool) {
-	afterDot := args.argsNode.StartPoint()
-	afterDot.Column -= uint32(len(methodName))
-	if query.PointAfterOrEqual(node.StartPoint(), afterDot) {
-		node = node.Parent()
+	afterDot := node.EndPoint() // assume that node passed is the object node
+	afterDot.Column += 1
+
+	if args.argsNode != nil {
+		afterDot = args.argsNode.StartPoint()
+		afterDot.Column -= uint32(len(methodName))
+		if query.PointAfterOrEqual(node.StartPoint(), afterDot) {
+			node = node.Parent()
+		}
 	}
+
 	expr := a.findObjectExpression([]*sitter.Node{node}, afterDot)
 	typeName := a.analyzeType(doc, expr)
 	return a.findTypeMethod(typeName, methodName)
