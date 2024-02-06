@@ -106,6 +106,15 @@ var strToProtocolMap = map[string]protocol.SymbolKind{
 	"call":                protocol.SymbolKindFunction, // node.type, assignment from func call
 }
 
+var KnownSymbolKinds map[protocol.SymbolKind]bool = map[protocol.SymbolKind]bool{
+	protocol.SymbolKindBoolean: true,
+	protocol.SymbolKindArray:   true, // list
+	protocol.SymbolKindObject:  true, // dict
+	protocol.SymbolKindNumber:  true, // float, int
+	protocol.SymbolKindNull:    true,
+	protocol.SymbolKindString:  true,
+}
+
 func StrToSymbolKind(s string) protocol.SymbolKind {
 	if kind, found := strToProtocolMap[s]; found {
 		return kind
