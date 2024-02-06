@@ -157,7 +157,8 @@ func (a *Analyzer) completeExpression(doc document.Document, nodes []*sitter.Nod
 	lastId := identifiers[len(identifiers)-1]
 	expr := a.findObjectExpression(nodes, sitter.Point{Row: pt.Row, Column: pt.Column - uint32(len(lastId))})
 	if expr != nil {
-		symbols = append(symbols, SymbolsStartingWith(a.availableMembersForNode(doc, expr), lastId)...)
+		a.logger.Debug("dot object completion", zap.Strings("objs", identifiers[:len(identifiers)-1]))
+		return SymbolsStartingWith(a.availableMembersForNode(doc, expr), lastId)
 	}
 
 	return symbols
