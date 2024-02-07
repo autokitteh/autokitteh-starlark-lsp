@@ -135,6 +135,9 @@ func SymbolKindToBuiltinType(kind protocol.SymbolKind) string {
 }
 
 func StrToSymbolKindAndType(s string) (protocol.SymbolKind, string) {
+	if s == "" {
+		return 0, s
+	}
 	sl := strings.ToLower(s)
 	kind := StrToSymbolKind(sl)
 	if kind != 0 {

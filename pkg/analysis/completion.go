@@ -404,13 +404,9 @@ func (a *Analyzer) analyzeType(doc document.Document, node *sitter.Node) string 
 	case query.NodeTypeCall:
 		fnName := doc.Content(node.ChildByFieldName("function"))
 		args := node.ChildByFieldName("arguments")
-		sig, found := a.signatureInformation(doc, node, callWithArguments{fnName: fnName, argsNode: args})
-		if found && sig.ReturnType != "" {
-			if _, t := query.StrToSymbolKindAndType(sig.ReturnType); t != "" {
-				return t
-			}
-			return sig.ReturnType
-		}
+		sig, _ := a.signatureInformation(doc, node, callWithArguments{fnName: fnName, argsNode: args})
+		_, t := query.StrToSymbolKindAndType(sig.ReturnType)
+		return t
 	}
 	return ""
 }
