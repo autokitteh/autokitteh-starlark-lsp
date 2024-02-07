@@ -395,6 +395,9 @@ func (a *Analyzer) analyzeType(doc document.Document, node *sitter.Node) string 
 
 	case query.NodeTypeIdentifier:
 		if sym, found := a.FindDefinition(doc, node, doc.Content(node)); found {
+			if sym.Kind == protocol.SymbolKindVariable {
+				sym = a.resolveSymbolTypeAndKind(doc, node, sym)
+			}
 			return sym.GetType()
 		}
 
@@ -412,9 +415,46 @@ func (a *Analyzer) analyzeType(doc document.Document, node *sitter.Node) string 
 	return ""
 }
 
+func (a *Analyzer) resolveSymbolTypeAndKind(doc document.Document, orginatingNode *sitter.Node, sym query.Symbol) query.Symbol {
+	if len(gAvailableSymbols) == 0 {
+		a.logger.Debug("compute available symbols 2")
+		// TODO: there is a call for findDefinition. maybe we should cache local symbols?
+		// TODO: convert list to map
+		gAvailableSymbols = a.availableSymbols(doc, orginatingNode, orginatingNode.StartPoint())
+	}
+
+	maxResolveSteps := 5 // just to limit
+	for i := 0; i < maxResolveSteps; i++ {
+		// assignment from function or from known proto kinds (str/dict/list)
+		if _, knownKind := query.KnownSymbolKinds[sym.Kind]; knownKind || strings.HasSuffix(sym.Type, "()") {
+			break
+		}
+
+		for _, s := range gAvailableSymbols {
+			if s.Name == sym.Type {
+				sym = s
+				break
+			}
 		}
 	}
-	return sig, false
+
+	if strings.HasSuffix(sym.Type, "()") { // assignment from function call (e.g. `foo = bar()`)
+		funcName := sym.Type[:len(sym.Type)-2] // remove '()'
+
+		argsNode, _ := query.NodeAtPosition(doc, sym.Location.Range.End) // sym.Location.Range covers entire assignment
+
+		// signatureInformation is expecting to single node and preferrably `attribute` node with 3 kids,
+		// in order to pass it to findTypedMethodForNode. If args node is passed, findTypedMethodForNode will
+		// invoke findAttrObjectExpression on its parent (e.g. `call` node), thus object expression will be resolved correctly.
+		sig, found := a.signatureInformation(doc, argsNode, callWithArguments{fnName: funcName, argsNode: argsNode})
+
+		if found && sig.ReturnType != "" {
+			kind, t := query.StrToSymbolKindAndType(sig.ReturnType)
+			sym.Type = t
+			sym.Kind = kind
+		}
+	}
+	return sym
 }
 
 func (a *Analyzer) availableMembers(t string) []query.Symbol {
