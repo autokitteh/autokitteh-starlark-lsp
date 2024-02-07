@@ -36,6 +36,20 @@ func assertCompletionResult(t *testing.T, names []string, result *protocol.Compl
 	assert.ElementsMatch(t, names, labels)
 }
 
+func printNodeTree(d document.Document, n *sitter.Node, indent string) string {
+	nodeType := "U"
+	if n.IsNamed() {
+		nodeType = "N"
+	}
+	result := fmt.Sprintf("\n%s%s (%s): %s", indent, n.Type(), nodeType, d.Content(n))
+	indent += "  "
+	for i := 0; i < int(n.ChildCount()); i++ {
+		child := n.Child(i)
+		result += printNodeTree(d, child, indent)
+	}
+	return result
+}
+
 func TestSimpleCompletion(t *testing.T) {
 	f := newFixture(t)
 
@@ -423,18 +437,4 @@ argument_list (N): (foo.)
 			assert.Equal(t, doc.Content(objNode), "foo")
 		})
 	}
-}
-
-func printNodeTree(d document.Document, n *sitter.Node, indent string) string {
-	nodeType := "U"
-	if n.IsNamed() {
-		nodeType = "N"
-	}
-	result := fmt.Sprintf("\n%s%s (%s): %s", indent, n.Type(), nodeType, d.Content(n))
-	indent += "  "
-	for i := 0; i < int(n.ChildCount()); i++ {
-		child := n.Child(i)
-		result += printNodeTree(d, child, indent)
-	}
-	return result
 }
