@@ -421,7 +421,7 @@ func (a *Analyzer) resolveSymbolTypeAndKind(doc document.Document, orginatingNod
 	maxResolveSteps := 5 // just to limit
 	for i := 0; i < maxResolveSteps; i++ {
 		// assignment from function or from known proto kinds (str/dict/list)
-		if _, knownKind := query.KnownSymbolKinds[sym.Kind]; knownKind || strings.HasSuffix(sym.Type, "()") {
+		if _, knownKind := query.KnownSymbolKinds[sym.Kind]; knownKind || strings.HasSuffix(sym.Type, ")") {
 			break
 		}
 
@@ -433,8 +433,8 @@ func (a *Analyzer) resolveSymbolTypeAndKind(doc document.Document, orginatingNod
 		}
 	}
 
-	if strings.HasSuffix(sym.Type, "()") { // assignment from function call (e.g. `foo = bar()`)
-		funcName := sym.Type[:len(sym.Type)-2] // remove '()'
+	if idx := strings.Index(sym.Type, "("); idx > 0 && sym.Type[len(sym.Type)-1] == ')' { // assignment from function call (e.g. `foo = bar()`)
+		funcName := sym.Type[:idx] // remove everything till the arguments call
 
 		argsNode, _ := query.NodeAtPosition(doc, sym.Location.Range.End) // sym.Location.Range covers entire assignment
 
