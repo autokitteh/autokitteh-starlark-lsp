@@ -79,6 +79,12 @@ def quux():
   pass
 `
 
+var (
+	allDictFuncs   = []string{"clear", "get", "items", "keys", "pop", "popitem", "setdefault", "update", "values"}
+	allListFuncs   = []string{"append", "clear", "extend", "index", "insert", "pop", "remove"}
+	allStringFuncs = []string{"elem_ords", "capitalize", "codepoint_ords", "count", "endswith", "find", "format", "index", "isalnum", "isalpha", "isdigit", "islower", "isspace", "istitle", "isupper", "join", "lower", "lstrip", "partition", "removeprefix", "removesuffix", "replace", "rfind", "rindex", "rpartition", "rsplit", "rstrip", "split", "elems", "codepoints", "splitlines", "startswith", "strip", "title", "upper"}
+)
+
 func TestCompletions(t *testing.T) {
 	tests := []struct {
 		doc            string
@@ -288,8 +294,6 @@ func TestMemberCompletion(t *testing.T) {
 	}{
 		{doc: "pr", char: 2, expected: []string{"print"}},
 		{doc: "pr.end", char: 6, expected: []string{"endswith"}},
-		{doc: `"".isa`, char: 5, expected: []string{"isalnum", "isalpha"}},
-		{doc: `[].ex`, char: 5, expected: []string{"extend"}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.doc, func(t *testing.T) {
@@ -319,7 +323,9 @@ func TestTypedMemberCompletion(t *testing.T) {
 		expected   []string
 	}{
 		{doc: `"".c`, char: 4, expected: []string{"capitalize", "codepoint_ords", "count", "codepoints"}},
+		{doc: `"".isa`, char: 5, expected: []string{"isalnum", "isalpha"}},
 		{doc: `[].c`, char: 4, expected: []string{"clear"}},
+		{doc: `[].ex`, char: 5, expected: []string{"extend"}},
 		{doc: `{}.i`, char: 4, expected: []string{"items"}},
 		{doc: `s = ""
 s.c`, line: 1, char: 3, expected: []string{"capitalize", "codepoint_ords", "count", "codepoints"}},
@@ -329,7 +335,27 @@ s.c`, line: 1, char: 3, expected: []string{"clear"}},
 s.i`, line: 1, char: 3, expected: []string{"items"}},
 		{doc: `foo().c`, char: 7, expected: []string{"capitalize", "codepoint_ords", "count", "codepoints"}},
 		{doc: `bar().`, char: 6, expected: []string{}},
+
+		// zero char/only dot completion
+		{doc: `s = ""
+s.`, line: 1, char: 2, expected: allStringFuncs},
+		{doc: `l = []
+l.`, line: 1, char: 2, expected: allListFuncs},
+		{doc: `d = {}
+d.`, line: 1, char: 2, expected: allDictFuncs},
+
+		// type propagation
+		{doc: `s = ""
+ss = s
+s.`, line: 2, char: 2, expected: allStringFuncs},
+		{doc: `l = []
+ll = l
+l.`, line: 2, char: 2, expected: allListFuncs},
+		{doc: `d = {}
+dd = d
+d.`, line: 2, char: 2, expected: allDictFuncs},
 	}
+
 	for _, tt := range tests {
 		t.Run(tt.doc, func(t *testing.T) {
 			doc := f.MainDoc(tt.doc)
