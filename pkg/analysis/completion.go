@@ -13,6 +13,8 @@ import (
 	"github.com/autokitteh/starlark-lsp/pkg/query"
 )
 
+var gAvailableSymbols []query.Symbol // cache computed available symbols
+
 func SymbolMatching(symbols []query.Symbol, name string) query.Symbol {
 	if name == "" {
 		return query.Symbol{}
@@ -118,6 +120,7 @@ func (a *Analyzer) completeExpression(doc document.Document, nodes []*sitter.Nod
 		nodeAtPoint = nodes[len(nodes)-1]
 	}
 	symbols := a.availableSymbols(doc, nodeAtPoint, pt)
+	gAvailableSymbols = symbols
 	identifiers := query.ExtractIdentifiers(doc, nodes, &pt)
 
 	a.logger.Debug("completion attempt",
