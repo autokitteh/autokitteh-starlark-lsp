@@ -507,6 +507,28 @@ r.`, line: 2, char: 2, expected: allListFuncs},
 		{doc: `c = get_c2()
 r = c.foo()
 r.`, line: 2, char: 2, expected: allDictFuncs},
+
+		// handling argument lists
+		{doc: `c = get_c1("arg1")
+c.`, line: 1, char: 2, expected: []string{"i1", "foo"}},
+		{doc: `c = get_c1("args1", arg2)
+c.`, line: 1, char: 2, expected: []string{"i1", "foo"}},
+		{doc: `c = get_c1("args1", arg2, a3="arg3")
+c.`, line: 1, char: 2, expected: []string{"i1", "foo"}},
+		{doc: `c = get_c2(
+"arg1"
+)
+c.`, line: 3, char: 2, expected: []string{"i2", "foo"}},
+		{doc: `c = get_c2(
+    "args1", 
+	    arg2)
+c.`, line: 3, char: 2, expected: []string{"i2", "foo"}},
+		{doc: `c = get_c2(
+"args1", 
+arg2, 
+a3="arg3"
+)
+c.`, line: 5, char: 2, expected: []string{"i2", "foo"}},
 	}
 
 	for _, tt := range tests {
