@@ -330,6 +330,10 @@ func TestTypedMemberCompletion(t *testing.T) {
 		Name:       "bar",
 		ReturnType: "None",
 	}
+	f.builtins.Functions["baz"] = query.Signature{
+		Name:       "baz",
+		ReturnType: "dict",
+	}
 
 	tests := []struct {
 		doc        string
@@ -368,6 +372,18 @@ l.`, line: 2, char: 2, expected: allListFuncs},
 		{doc: `d = {}
 dd = d
 d.`, line: 2, char: 2, expected: allDictFuncs},
+
+		// func1 -> type1, type1.func2 -> type2
+		{doc: `s = foo()
+s.`, line: 1, char: 2, expected: allStringFuncs},
+		{doc: `d = baz()
+d.`, line: 1, char: 2, expected: allDictFuncs},
+		{doc: `d = baz()
+l = d.keys()
+l.`, line: 2, char: 2, expected: allListFuncs},
+		{doc: `d = {}
+l = d.keys()
+l.`, line: 2, char: 2, expected: allListFuncs},
 	}
 
 	for _, tt := range tests {
@@ -435,6 +451,69 @@ argument_list (N): (foo.)
 			objNode := f.a.findObjectExpression(nodes, pt)
 			assert.Equal(t, objNode.Type(), "identifier")
 			assert.Equal(t, doc.Content(objNode), "foo")
+		})
+	}
+}
+
+const funcsAndObjectsFixture = `
+class C1:
+    i1: int
+    def foo() -> list: 
+        "C1 FOO"
+        pass
+    
+class C2:
+    i2: int
+    def foo() -> dict:
+        "C2 FOO"
+        pass
+
+def get_c1(s: str) -> C1:
+    "GET C1"
+    return C1()
+
+def get_c2(s: str) -> C2:
+    "GET C2"
+    return C2()
+`
+
+func TestRemappedSymbolsCompletion(t *testing.T) {
+	f := newFixture(t)
+	_ = WithStarlarkBuiltins()(f.a)
+	f.ParseBuiltins(funcsAndObjectsFixture)
+
+	tests := []struct {
+		doc        string
+		line, char uint32
+		expected   []string
+	}{
+		{doc: `c = get_c1()
+c.`, line: 1, char: 2, expected: []string{"i1", "foo"}},
+		{doc: `c = get_c2()
+c.`, line: 1, char: 2, expected: []string{"i2", "foo"}},
+
+		// type propagation
+		{doc: `cc = get_c1()
+c = cc
+c.`, line: 2, char: 2, expected: []string{"i1", "foo"}},
+		{doc: `cc = get_c2()
+c = cc
+c.`, line: 2, char: 2, expected: []string{"i2", "foo"}},
+
+		// resolving func1() -> type1, type1.func2 -> type2,
+		{doc: `c = get_c1()
+r = c.foo()
+r.`, line: 2, char: 2, expected: allListFuncs},
+		{doc: `c = get_c2()
+r = c.foo()
+r.`, line: 2, char: 2, expected: allDictFuncs},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.doc, func(t *testing.T) {
+			doc := f.MainDoc(tt.doc)
+			result := f.a.Completion(doc, protocol.Position{Line: tt.line, Character: tt.char})
+			assertCompletionResult(t, tt.expected, result)
 		})
 	}
 }
