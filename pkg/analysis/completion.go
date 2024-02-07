@@ -413,7 +413,6 @@ func (a *Analyzer) analyzeType(doc document.Document, node *sitter.Node) string 
 
 func (a *Analyzer) resolveSymbolTypeAndKind(doc document.Document, orginatingNode *sitter.Node, sym query.Symbol) query.Symbol {
 	if len(gAvailableSymbols) == 0 {
-		a.logger.Debug("compute available symbols 2")
 		// TODO: there is a call for findDefinition. maybe we should cache local symbols?
 		// TODO: convert list to map
 		gAvailableSymbols = a.availableSymbols(doc, orginatingNode, orginatingNode.StartPoint())
