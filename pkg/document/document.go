@@ -154,6 +154,18 @@ func (d *document) Copy() Document {
 // ---------------------------------------------------------------------------
 var akIntegrationPrefix = "@"
 
+func akSpecialLoads(ctx context.Context, d *document, load LoadStatement) bool {
+	// handle autokitteh integration<->connection binding via load statements
+	if strings.HasPrefix(load.File, akIntegrationPrefix) {
+		akAddConnectionSymbol(ctx, d, load)
+		return true
+	}
+	if load.File == "env" {
+		return true
+	}
+	return false
+}
+
 func akAddConnectionSymbol(ctx context.Context, d *document, load LoadStatement) {
 	logger := protocol.LoggerFromContext(ctx)
 
@@ -182,9 +194,8 @@ func (d *document) followLoads(ctx context.Context, m *Manager, parseState Docum
 		}
 
 		// --------------------------------------------------------------------------
-		// ak: handle autokitteh integration<->connection binding via load statements
-		if strings.HasPrefix(load.File, akIntegrationPrefix) {
-			akAddConnectionSymbol(ctx, d, load)
+		// ak: handle specil autokitteh loads (integration<->connection binding and env)
+		if akSpecialLoads(ctx, d, load) {
 			d.loads[i].processed = true
 			continue
 		} // ------------------------------------------------------------------------
