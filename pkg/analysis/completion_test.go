@@ -1,14 +1,12 @@
 package analysis
 
 import (
-	"fmt"
 	"testing"
 
 	sitter "github.com/smacker/go-tree-sitter"
 	"github.com/stretchr/testify/assert"
 	"go.lsp.dev/protocol"
 
-	"github.com/autokitteh/starlark-lsp/pkg/document"
 	"github.com/autokitteh/starlark-lsp/pkg/query"
 )
 
@@ -34,20 +32,6 @@ func assertCompletionResult(t *testing.T, names []string, result *protocol.Compl
 		labels[i] = item.Label
 	}
 	assert.ElementsMatch(t, names, labels)
-}
-
-func printNodeTree(d document.Document, n *sitter.Node, indent string) string {
-	nodeType := "U"
-	if n.IsNamed() {
-		nodeType = "N"
-	}
-	result := fmt.Sprintf("\n%s%s (%s): %s", indent, n.Type(), nodeType, d.Content(n))
-	indent += "  "
-	for i := 0; i < int(n.ChildCount()); i++ {
-		child := n.Child(i)
-		result += printNodeTree(d, child, indent)
-	}
-	return result
 }
 
 func TestSimpleCompletion(t *testing.T) {
