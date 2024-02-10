@@ -139,15 +139,7 @@ func (a *Analyzer) completeExpression(doc document.Document, nodes []*sitter.Nod
 		if i < len(identifiers)-1 {
 			sym := akSymbolMatching(symbols, id)
 			symbols = sym.Children
-			a.logger.Debug("children",
-				zap.String("id", id),
-				zap.Strings("names", func() []string {
-					names := make([]string, len(symbols))
-					for j, s := range symbols {
-						names[j] = s.Name
-					}
-					return names
-				}()))
+			a.logger.Debug("children", zap.String("id", id), zap.Strings("names", query.SymbolNames(symbols)))
 		} else {
 			symbols = SymbolsStartingWith(symbols, id)
 		}
