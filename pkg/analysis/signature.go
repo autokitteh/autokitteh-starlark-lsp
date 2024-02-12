@@ -10,6 +10,15 @@ import (
 	"github.com/autokitteh/starlark-lsp/pkg/query"
 )
 
+func (a *Analyzer) builtinSignatureInfo(topLevelPart string, rest string) (query.Signature, bool) {
+	var sig query.Signature
+	sym := akSymbolMatching(a.builtins.Symbols, topLevelPart)
+	if sym.Name != "" {
+		sig, _ = a.builtins.Functions[topLevelPart+"."+rest]
+	}
+	return sig, sym.Name != ""
+}
+
 func (a *Analyzer) signatureInformation(doc document.Document, node *sitter.Node, args callWithArguments) (query.Signature, bool) {
 	var sig query.Signature
 	var found bool
