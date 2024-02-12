@@ -120,6 +120,7 @@ func (s Signature) Symbol() Symbol {
 			URI:   s.docURI,
 			Range: s.Range,
 		},
+		Type: s.ReturnType,
 	}
 }
 
