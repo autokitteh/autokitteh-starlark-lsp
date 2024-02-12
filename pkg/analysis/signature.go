@@ -24,50 +24,43 @@ func (a *Analyzer) signatureInformation(doc document.Document, node *sitter.Node
 	var found bool
 	fnName := args.fnName
 
-	// first try to find non-typed functions, e.g. local/global scope and builtins
-	// NOTE that functions imported from builtins have a dot in their name denoting imported path, e.g. dir.file.func, but those functiosn aren't methods
+	// Try to find funcs in the following order: local/global scope, exact builtins, rebinded builtins, methods
+	// NOTE: that functions imported from builtins have a dot in their name denoting imported path,
+	// e.g. dir.file.func, but those functiosn aren't methods
+
 	for n := node; n != nil && !query.IsModuleScope(doc, n); n = n.Parent() {
-		sig, found = query.Function(doc, n, fnName)
-		if found {
-			break
+		if sig, found = query.Function(doc, n, fnName); found {
+			return sig, sig.Name != ""
 		}
 	}
 
-	if !found {
-		sig, found = doc.Functions()[fnName]
-	}
-
-	if !found {
-		sig, found = a.builtins.Functions[fnName]
-	}
-
-	if found {
+	if sig, found = doc.Functions()[fnName]; found {
 		return sig, sig.Name != ""
 	}
 
-	ind := strings.LastIndex(fnName, ".")
-	if ind == -1 {
+	// exact builtin matching
+	if sig, found = a.builtins.Functions[fnName]; found {
+		return sig, sig.Name != ""
+	}
+
+	if !strings.ContainsAny(fnName, ".") {
 		return sig, false
 	}
-	mName := fnName[ind+1:]
 
-	// handle AK rebinded builtins -------------------------------------------
-	preDotName := fnName[:ind]
-	sym := SymbolMatching(doc.Symbols(), preDotName)
-	if akIsBindedSymbol(sym) {
-		buitinSym := SymbolMatching(a.builtins.Symbols, sym.Detail)
-		sig, _ = a.builtins.Functions[buitinSym.Name+"."+mName]
-		return sig, sig.Name != ""
+	// ak: handle rebinded builtins ------------------------------------------
+	ind := strings.Index(fnName, ".")
+	if sig, symFound := a.builtinSignatureInfo(fnName[:ind], fnName[ind+1:]); symFound {
+		return sig, sig.Name != "" // don't continue if sym was found
 	} // ---------------------------------------------------------------------
 
 	// at last, try to find whether it's a method
-	if !found && strings.Contains(fnName, ".") {
-		sig = a.builtins.Methods[mName]
-		if sig.Name != "" {
-			method, found := a.findTypedMethodForNode(doc, node, mName, args)
-			if found {
-				sig = method
-			}
+	ind = strings.LastIndex(fnName, ".")
+	mName := fnName[ind+1:]
+	sig = a.builtins.Methods[mName]
+	if sig.Name != "" {
+		method, found := a.findTypedMethodForNode(doc, node, mName, args)
+		if found {
+			sig = method
 		}
 	}
 	return sig, sig.Name != ""
