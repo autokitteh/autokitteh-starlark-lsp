@@ -5,7 +5,7 @@ import (
 	"io/fs"
 )
 
-//go:embed builtins/*.py
+//go:embed builtins
 var akBuiltins embed.FS
 
 type BuiltinFSProvider = func() fs.FS
