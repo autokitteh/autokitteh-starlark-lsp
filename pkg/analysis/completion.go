@@ -135,30 +135,88 @@ func (a *Analyzer) completeExpression(doc document.Document, nodes []*sitter.Nod
 		zap.Strings("identifiers", identifiers),
 	)
 
-	for i, id := range identifiers {
-		if i < len(identifiers)-1 {
-			sym := akSymbolMatching(symbols, id)
-			symbols = sym.Children
-			a.logger.Debug("children", zap.String("id", id), zap.Strings("names", query.SymbolNames(symbols)))
-		} else {
-			symbols = SymbolsStartingWith(symbols, id)
+	var i int
+	var id string
+	var sym query.Symbol
+	for i, id = range identifiers {
+		sym = akSymbolMatching(symbols, id)
+		if i == 0 {
+			if id == "" {
+				symbols = []query.Symbol{} // e.g. "". or []. etc
+				break
+			} else if sym.Name != "" && sym.Name != id { // ak: ----------------------
+				identifiers[0] = sym.Name // replace remapped top level builtin symbol
+			} // ---------------------------------------------------------------------
 		}
+		if i == len(identifiers)-1 || sym.Children == nil { //
+			symbols = SymbolsStartingWith(symbols, id)
+			break
+		}
+
+		symbols = sym.Children // dir.file.func builtin imported as a tree, where dir is uplevel symbol, file is a child, and func is a child of file
+		a.logger.Debug("children", zap.String("id", id), zap.Strings("names", query.SymbolNames(symbols)))
 	}
 
-	if len(symbols) != 0 {
+	if i == len(identifiers)-1 && len(symbols) > 0 {
 		return symbols
+	}
+
+	if n, p := nodeAtPoint, nodeAtPoint.Parent(); len(symbols) == 0 && p != nil {
+		// ak: handle standalone dot as a trigger for all available symbols ------
+		if len(identifiers) == 2 && identifiers[0] == "" && identifiers[1] == "" && n.Type() == query.NodeTypeDot && p.Type() == query.NodeTypeERROR && p.ChildCount() == 1 {
+			return gAvailableSymbols
+		} else if p.Type() == query.NodeTypeArgList {
+			return gAvailableSymbols
+		}
+	} // ---------------------------------------------------------------------
+
+	// there are more identifiers to resolve or no symbols found
+
+	// REVIEW: should we distnguish between (i) resolving via builtins (e.g. sym.Children) and (ii) local
+	if len(symbols) == 1 {
+		if (sym.Kind == protocol.SymbolKindMethod || sym.Kind == protocol.SymbolKindFunction) && sym.Type != "" {
+			// find return type of builtin method/function and resolve nested members
+			identifiers = append([]string{sym.Type}, identifiers[i+1:]...)
+			return a.nestedMembersCompletion(identifiers)
+		} else {
+			if t := query.SymbolKindToBuiltinType(sym.Kind); t != "" && i == 0 { // String, Dict, List
+				identifiers = append([]string{t}, identifiers[1:]...)
+				return a.nestedMembersCompletion(identifiers)
+			}
+		}
+		symbols = []query.Symbol{} // clean symbols. try other methods. REVIEW: do it better?
 	}
 
 	lastId := identifiers[len(identifiers)-1]
 	expr := a.findObjectExpression(nodes, sitter.Point{Row: pt.Row, Column: pt.Column - uint32(len(lastId))})
 	if expr != nil {
 		a.logger.Debug("dot object completion", zap.Strings("objs", identifiers[:len(identifiers)-1]))
-		return SymbolsStartingWith(a.availableMembersForNode(doc, expr), lastId)
+		symbols = SymbolsStartingWith(a.availableMembersForNode(doc, expr), lastId)
 	}
 
 	return symbols
 }
 
+func (a *Analyzer) nestedMembersCompletion(identifiers []string) []query.Symbol {
+	a.logger.Debug("nested members completion", zap.Strings("members", identifiers))
+	if len(identifiers) < 2 { // at least initial type type + member/field/method
+		return []query.Symbol{}
+	}
+
+	t := identifiers[0]
+	var symbols []query.Symbol
+
+	for i := 1; i < len(identifiers) && t != ""; i++ {
+		symbols = a.availableMembers(t)
+		symbols = SymbolsStartingWith(symbols, identifiers[i])
+
+		if len(symbols) == 1 {
+			t = symbols[0].GetType()
+		}
+	}
+
+	return symbols
+}
 // Returns a list of available symbols for completion as follows:
 //   - If in a function argument list, include keyword args for that function
 //   - Add symbols in scope for the node at point, excluding symbols at the module
@@ -197,7 +255,7 @@ func (a *Analyzer) nodesAtPointForCompletion(doc document.Document, pt sitter.Po
 	if !ok {
 		return []*sitter.Node{}, false
 	}
-	a.logger.Debug("node at point", zap.String("node", node.Type()))
+	a.logger.Debug("node at point", zap.String("node", node.Type()), zap.String("content", doc.Content(node)))
 	return a.nodesForCompletion(doc, node, pt)
 }
 
