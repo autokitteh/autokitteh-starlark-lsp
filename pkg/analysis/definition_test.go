@@ -8,6 +8,8 @@ import (
 	"go.lsp.dev/uri"
 )
 
+const fileInclude = "autokitteh-starlark.include"
+
 func TestBasicDefinition(t *testing.T) {
 	for _, tc := range []struct {
 		name string
@@ -18,7 +20,7 @@ func TestBasicDefinition(t *testing.T) {
 		expectedRange protocol.Range
 	}{
 		{"func definition", 1, 5, "", protocol.Range{}},
-		{"func call", 7, 1, "Tiltfile.test", protocol.Range{Start: protocol.Position{
+		{"func call", 7, 1, fixtureFileName, protocol.Range{Start: protocol.Position{
 			Line:      1,
 			Character: 0,
 		}, End: protocol.Position{
@@ -26,7 +28,7 @@ func TestBasicDefinition(t *testing.T) {
 			Character: 7,
 		}}},
 		{"var definition", 5, 0, "", protocol.Range{}},
-		{"var reference", 7, 4, "Tiltfile.test", protocol.Range{Start: protocol.Position{
+		{"var reference", 7, 4, fixtureFileName, protocol.Range{Start: protocol.Position{
 			Line:      5,
 			Character: 0,
 		}, End: protocol.Position{
@@ -69,7 +71,7 @@ print(y)
 func TestCrossFileDefinition(t *testing.T) {
 	f := newFixture(t)
 
-	f.Document("Tiltfile.include", `
+	f.Document(fileInclude, `
 print('hi')
 
 def foo():
@@ -77,7 +79,7 @@ def foo():
 `)
 
 	doc := f.MainDoc(`
-load('Tiltfile.include', 'foo')
+load('` + fileInclude + `', 'foo')
 
 foo()
 `)
@@ -85,7 +87,7 @@ foo()
 	result := f.a.Definition(f.ctx, doc, protocol.Position{Line: 3, Character: 1})
 	require.Len(t, result, 1)
 	require.Equal(t, protocol.Location{
-		URI: uri.File("Tiltfile.include"),
+		URI: uri.File(fileInclude),
 		Range: protocol.Range{
 			Start: protocol.Position{
 				Line:      3,
