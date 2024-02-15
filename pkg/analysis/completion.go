@@ -2,6 +2,7 @@ package analysis
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 
 	"go.lsp.dev/protocol"
@@ -119,6 +120,7 @@ func (a *Analyzer) completeExpression(doc document.Document, nodes []*sitter.Nod
 	if len(nodes) > 0 {
 		nodeAtPoint = nodes[len(nodes)-1]
 	}
+
 	symbols := a.availableSymbols(doc, nodeAtPoint, pt)
 	gAvailableSymbols = symbols
 	identifiers := query.ExtractIdentifiers(doc, nodes, &pt)
@@ -135,58 +137,32 @@ func (a *Analyzer) completeExpression(doc document.Document, nodes []*sitter.Nod
 		zap.Strings("identifiers", identifiers),
 	)
 
-	var i int
-	var id string
-	var sym query.Symbol
-	for i, id = range identifiers {
-		sym = akSymbolMatching(symbols, id)
-		if i == 0 {
-			if id == "" {
-				symbols = []query.Symbol{} // e.g. "". or []. etc
-				break
-			} else if sym.Name != "" && sym.Name != id { // ak: ----------------------
-				identifiers[0] = sym.Name // replace remapped top level builtin symbol
-			} // ---------------------------------------------------------------------
-		}
-		if i == len(identifiers)-1 || sym.Children == nil { //
-			symbols = SymbolsStartingWith(symbols, id)
-			break
-		}
-
-		symbols = sym.Children // dir.file.func builtin imported as a tree, where dir is uplevel symbol, file is a child, and func is a child of file
-		a.logger.Debug("children", zap.String("id", id), zap.Strings("names", query.SymbolNames(symbols)))
+	if len(identifiers) == 0 {
+		return []query.Symbol{}
 	}
 
-	if i == len(identifiers)-1 && len(symbols) > 0 {
+	if nodeAtPoint == nil || (len(identifiers) == 1 && identifiers[0] == "") {
 		return symbols
 	}
 
-	if n, p := nodeAtPoint, nodeAtPoint.Parent(); len(symbols) == 0 && p != nil {
-		// ak: handle standalone dot as a trigger for all available symbols ------
-		if len(identifiers) == 2 && identifiers[0] == "" && identifiers[1] == "" && n.Type() == query.NodeTypeDot && p.Type() == query.NodeTypeERROR && p.ChildCount() == 1 {
-			return gAvailableSymbols
-		} else if p.Type() == query.NodeTypeArgList {
-			return gAvailableSymbols
-		}
-	} // ---------------------------------------------------------------------
-
-	// there are more identifiers to resolve or no symbols found
-
-	// REVIEW: should we distnguish between (i) resolving via builtins (e.g. sym.Children) and (ii) local
-	if len(symbols) == 1 {
-		if (sym.Kind == protocol.SymbolKindMethod || sym.Kind == protocol.SymbolKindFunction) && sym.Type != "" {
-			// find return type of builtin method/function and resolve nested members
-			identifiers = append([]string{sym.Type}, identifiers[i+1:]...)
-			return a.nestedMembersCompletion(identifiers)
-		} else {
-			if t := query.SymbolKindToBuiltinType(sym.Kind); t != "" && i == 0 { // String, Dict, List
-				identifiers = append([]string{t}, identifiers[1:]...)
-				return a.nestedMembersCompletion(identifiers)
-			}
-		}
-		symbols = []query.Symbol{} // clean symbols. try other methods. REVIEW: do it better?
+	if symbols, ok := a.builtinsCompletion(doc, identifiers); ok {
+		return symbols
 	}
 
+	if len(identifiers) == 1 { // REVIEW: any cases where more than 1 identifier?
+		a.logger.Debug("completion attempt local/global", zap.Strings("ids", identifiers))
+		return SymbolsStartingWith(gAvailableSymbols, identifiers[0])
+	}
+
+	if len(nodes) >= 2 && nodes[1].Type() == query.NodeTypeDot && len(identifiers) >= 2 {
+		t := a.analyzeType(doc, nodes[0])
+		identifiers := append([]string{t}, identifiers[1:]...)
+		if symbols, ok := a.builtinsCompletion(doc, identifiers); ok {
+			return symbols
+		}
+	}
+
+	// failback. original version. search for last dot completions
 	lastId := identifiers[len(identifiers)-1]
 	expr := a.findObjectExpression(nodes, sitter.Point{Row: pt.Row, Column: pt.Column - uint32(len(lastId))})
 	if expr != nil {
@@ -197,26 +173,115 @@ func (a *Analyzer) completeExpression(doc document.Document, nodes []*sitter.Nod
 	return symbols
 }
 
-func (a *Analyzer) nestedMembersCompletion(identifiers []string) []query.Symbol {
-	a.logger.Debug("nested members completion", zap.Strings("members", identifiers))
-	if len(identifiers) < 2 { // at least initial type type + member/field/method
-		return []query.Symbol{}
+func (a *Analyzer) builtinsCompletion(doc document.Document, identifiers []string) (symbols []query.Symbol, ok bool) {
+	symbols = append(a.builtins.Symbols, doc.Symbols()...) // we need builtins and doc-rebinded ones
+
+	ids := identifiers
+	if symbols, ids = a.builtinFuncCompletion(symbols, ids); len(ids) == 0 && len(symbols) > 0 {
+		return symbols, true
+	}
+	if symbols, ids = a.builtinTypeNestedCompletion(ids); len(ids) == 0 && len(symbols) > 0 {
+		return symbols, true
+	}
+	if len(identifiers) != len(ids) {
+		a.logger.Debug("incomplete via builtins", zap.Strings("orig ids", identifiers), zap.Strings("new ids", ids))
+		return symbols, true // something was completed. Don't proceed
+	}
+	return symbols, false
+}
+
+func (a *Analyzer) builtinFuncCompletion(symbols []query.Symbol, identifiers []string) ([]query.Symbol, []string) {
+	if len(identifiers) == 0 || identifiers[0] == "" {
+		return []query.Symbol{}, identifiers
+	}
+	a.logger.Debug("completion attempt builtin func", zap.Strings("ids", identifiers))
+
+	// start with all builtins and narrow down. dir.file.func builtin imported as a tree,
+	// where dir is uplevel symbol, file is a child, and func is a child of file
+
+	var i int
+	var id string
+	var sym query.Symbol
+	for i, id = range identifiers {
+		sym = akSymbolMatching(symbols, id)
+		if i == 0 && sym.Name != "" {
+			if sym.Name != id { // ak: -----------------------------------------------
+				identifiers[0] = sym.Name // replace remapped top level builtin symbol
+			} // ---------------------------------------------------------------------
+		}
+		if i == len(identifiers)-1 || sym.Children == nil { // last id, no exact sym or no children
+			symbols = SymbolsStartingWith(symbols, id)
+			break
+		}
+
+		symbols = sym.Children // narrow down
+		a.logger.Debug("children", zap.String("id", id), zap.Strings("names", query.SymbolNames(symbols)))
 	}
 
-	t := identifiers[0]
-	var symbols []query.Symbol
+	if i == len(identifiers)-1 && len(symbols) > 0 {
+		return symbols, []string{}
+	}
 
-	for i := 1; i < len(identifiers) && t != ""; i++ {
-		symbols = a.availableMembers(t)
-		symbols = SymbolsStartingWith(symbols, identifiers[i])
+	if sym.Name != "" {
+		identifiers = identifiers[i+1:]
+	}
 
-		if len(symbols) == 1 {
-			t = symbols[0].GetType()
+	if len(symbols) == 1 { // exact, but uncomplete resolving, update type
+		if t := query.SymbolKindToBuiltinType(sym.Kind); t != "" && i == 0 { // String, Dict, List
+			identifiers = append([]string{t}, identifiers...)
+		} else { // method/function
+			identifiers = append([]string{sym.Type}, identifiers...) // method/function ret type
 		}
 	}
 
-	return symbols
+	return symbols, identifiers
 }
+
+func (a *Analyzer) builtinTypeNestedCompletion(identifiers []string) ([]query.Symbol, []string) {
+	a.logger.Debug("completion attempt builtin types/members", zap.Strings("ids", identifiers))
+
+	symbols := []query.Symbol{}
+	if len(identifiers) == 0 {
+		return symbols, identifiers
+	}
+
+	t := identifiers[0]
+
+	if len(identifiers) == 1 { // just check presence and wrap type as symbol
+		if _, found := a.builtins.Types[t]; found {
+			identifiers = identifiers[1:]
+			symbols = []query.Symbol{{Name: t, Kind: protocol.SymbolKindClass, Type: t}}
+		}
+		return symbols, identifiers
+	}
+
+	found := false
+	for i, id := range identifiers {
+		if i > 0 { // narrow
+			symbols = SymbolsStartingWith(symbols, id)
+			if len(symbols) == 0 {
+				break
+			}
+			if len(symbols) > 1 || len(identifiers) == 1 { // cannot narrow more or last identifier.
+				identifiers = identifiers[1:] // mark this identifier as used
+				break
+			}
+			t = symbols[0].GetType()
+			if symbols[0].Name != id { // not exact match, cannot narrow more
+				break
+			}
+		}
+
+		if symbols, found = a.builtinTypeMembers(t); !found {
+			break
+		} else {
+			identifiers = identifiers[1:]
+		}
+	}
+
+	return symbols, identifiers
+}
+
 // Returns a list of available symbols for completion as follows:
 //   - If in a function argument list, include keyword args for that function
 //   - Add symbols in scope for the node at point, excluding symbols at the module
@@ -502,22 +567,26 @@ func (a *Analyzer) resolveSymbolTypeAndKind(doc document.Document, orginatingNod
 	return sym
 }
 
-func (a *Analyzer) availableMembers(t string) []query.Symbol {
+// returns available members for a given type
+func (a *Analyzer) builtinTypeMembers(t string) ([]query.Symbol, bool) {
 	if t != "" {
 		if class, found := a.builtins.Types[t]; found {
-			return class.Members
+			return class.Members, true
 		}
 		switch t {
 		case "None", "bool", "int", "float":
-			return []query.Symbol{}
+			return []query.Symbol{}, true
 		}
+		return []query.Symbol{}, false
+	} else {
+		return a.builtins.Members, false // REVIEW: return everything or nothing?
 	}
-	return a.builtins.Members
 }
 
 func (a *Analyzer) availableMembersForNode(doc document.Document, node *sitter.Node) []query.Symbol {
 	t := a.analyzeType(doc, node)
-	return a.availableMembers(t)
+	members, _ := a.builtinTypeMembers(t)
+	return members
 }
 
 func (a *Analyzer) FindDefinition(doc document.Document, node *sitter.Node, name string) (query.Symbol, bool) {
