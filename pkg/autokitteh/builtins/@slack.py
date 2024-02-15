@@ -192,6 +192,24 @@ class SlackUser:
 
     updated: int
 
+class SlackBookmark:
+    id: str
+    channel_id: str
+    title: str
+    link: str
+    emoji: str
+    icon_url: str
+    type: str
+    entity_id: str
+    created: int
+    updated: int
+    rank: str
+    last_updated_by_user_id: str
+    last_updated_by_team_id: str
+    shortcut_id: str
+    app_id: str
+    app_action_id: str
+
 
 ####################################################################################################
 ## Responses
@@ -415,6 +433,36 @@ class SlackUsersLookupByEmail:
     responce_metadata: dict
     # ------------------------
     user: SlackUser|None
+
+
+class SlackBookmarkAdd:
+    # SlackResponse
+    ok: bool
+    error: str|None
+    warning: str|None
+    responce_metadata: dict
+    # ------------------------
+    bookmark: SlackBookmark|None
+
+class SlackBookmarkEdit:
+    # SlackResponse
+    ok: bool
+    error: str|None
+    warning: str|None
+    responce_metadata: dict
+    # ------------------------
+    bookmark: SlackBookmark|None
+
+class SlackBookmarkList:
+    # SlackResponse
+    ok: bool
+    error: str|None
+    warning: str|None
+    responce_metadata: dict
+    # ------------------------
+    bookmarks: List[SlackBookmark]
+
+
 
 ####################################################################################################
 ## Auth
@@ -657,5 +705,37 @@ def users_lookup_by_email(email: str) -> SlackUsersLookupByEmail:
 
     Returns:
       SlackUsersLookupByEmail
+    """
+    pass
+
+def bookmarks_add(channel_id: str, title: str, type: str, emoji: str|None, entity_id: str|None, link: str|None, parent_id: str|None) -> SlackBookmarkAdd:
+    """https://api.slack.com/methods/bookmarks.add
+
+    Returns:
+      SlackBookmarkAdd
+    """
+    pass
+
+def bookmarks_edit(bookmark_id: str, channel_id: str, emoji: str|None, link: str|None, title: str|None) -> SlackBookmarkEdit:
+    """https://api.slack.com/methods/bookmarks.edit
+
+    Returns:
+      SlackBookmarkEdit
+    """
+    pass
+
+def bookmarks_list(channel_id: str) SlackBookmarkList:
+    """https://api.slack.com/methods/bookmarks.list
+
+    Returns:
+      SlackBookmarkList
+    """
+    pass
+
+def bookmarks_remove(bookmark_id: str, channel_id: str, quip_section_id: str|None) -> SlackResponse:
+    """https://api.slack.com/methods/bookmarks.remove
+
+    Returns:
+      SlackResponse
     """
     pass

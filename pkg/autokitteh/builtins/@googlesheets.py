@@ -1,3 +1,12 @@
+"""Google Sheets.
+
+Google Sheets is a web-based spreadsheet application that is part of the Google Workspace office suite.
+
+References:
+  - REST API reference: https://developers.google.com/sheets/api/reference/rest
+  - Go client API: https://pkg.go.dev/google.golang.org/api/sheets/v4
+"""
+
 def sheets_a1_range(sheet_name: str|None, from: str|None, to: str|None):
     """https://developers.google.com/sheets/api/guides/concepts#expandable-1"""
     pass
