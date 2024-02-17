@@ -677,9 +677,11 @@ func (a *Analyzer) availableMembersForNode(doc document.Document, node *sitter.N
 }
 
 func (a *Analyzer) FindDefinition(doc document.Document, node *sitter.Node, name string) (query.Symbol, bool) {
-	for _, sym := range query.SymbolsInScope(doc, node) {
-		if sym.Name == name {
-			return sym, true
+	if node != nil {
+		for _, sym := range query.SymbolsInScope(doc, node) {
+			if sym.Name == name {
+				return sym, true
+			}
 		}
 	}
 	for _, sym := range doc.Symbols() {
