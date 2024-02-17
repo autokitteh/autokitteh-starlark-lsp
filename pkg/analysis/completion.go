@@ -365,14 +365,19 @@ func (a *Analyzer) nodesForCompletion(doc document.Document, node *sitter.Node, 
 		}
 
 	case query.NodeTypeAttribute, query.NodeTypeIdentifier:
-		// If inside an attribute expression, capture the larger expression for
-		// completion.
-		switch node.Parent().Type() {
-		case query.NodeTypeAttribute:
+		// If inside an attribute expression, capture the larger expression for completion.
+		if node.Parent().Type() == query.NodeTypeAttribute {
 			nodes, _ = a.nodesForCompletion(doc, node.Parent(), pt)
 		}
 
-	case query.NodeTypeERROR, query.NodeTypeArgList:
+	case query.NodeTypeERROR:
+		leafNodes, ok := a.leafNodesForCompletion2(doc, node, pt)
+		if len(leafNodes) > 0 {
+			return leafNodes, ok
+		}
+		node = node.Child(int(node.ChildCount()) - 1)
+
+	case query.NodeTypeArgList:
 		leafNodes, ok := a.leafNodesForCompletion(doc, node, pt)
 		if len(leafNodes) > 0 {
 			return leafNodes, ok
@@ -498,6 +503,23 @@ func (a *Analyzer) findObjectExpression(nodes []*sitter.Node, pt sitter.Point) *
 	return expr
 }
 
+func (a *Analyzer) resolveSymbolType(doc document.Document, node *sitter.Node, symParts []string) string {
+	// FIXME: handle symbols better (gAvailable vs findDefinition). We need only scope + doc
+	// node is passed only for the scope purposes
+	if sym, found := a.FindDefinition(doc, node, symParts[0]); found {
+		if sym.Kind == protocol.SymbolKindVariable {
+			identifiers := a.resolveSymbolIdentifiers(gAvailableSymbols, sym)
+			identifiers = append(identifiers, symParts[1:]...)
+			a.logger.Debug("resolved node identifiers", zap.String("node", doc.Content(node)), zap.Strings("identifiers", identifiers))
+			syms, ok := a.builtinsCompletion(doc, identifiers)
+			if ok && len(syms) == 1 {
+				return syms[0].GetType()
+			}
+		}
+	}
+	return ""
+}
+
 // Perform some rudimentary type analysis to determine the Starlark type of the node
 func (a *Analyzer) analyzeType(doc document.Document, node *sitter.Node) string {
 	if node == nil {
@@ -509,12 +531,10 @@ func (a *Analyzer) analyzeType(doc document.Document, node *sitter.Node) string 
 		return query.SymbolKindToBuiltinType(query.StrToSymbolKind(nodeT))
 
 	case query.NodeTypeIdentifier:
-		if sym, found := a.FindDefinition(doc, node, doc.Content(node)); found {
-			if sym.Kind == protocol.SymbolKindVariable {
-				sym = a.resolveSymbolTypeAndKind(doc, node, sym)
-			}
-			return sym.GetType()
-		}
+		return a.resolveSymbolType(doc, node, []string{doc.Content(node)})
+
+	case query.NodeTypeAttribute:
+		return a.resolveSymbolType(doc, node, strings.Split(doc.Content(node), "."))
 
 	case query.NodeTypeCall:
 		fnName := doc.Content(node.ChildByFieldName("function"))
@@ -526,45 +546,48 @@ func (a *Analyzer) analyzeType(doc document.Document, node *sitter.Node) string 
 	return ""
 }
 
-func (a *Analyzer) resolveSymbolTypeAndKind(doc document.Document, orginatingNode *sitter.Node, sym query.Symbol) query.Symbol {
-	if len(gAvailableSymbols) == 0 {
-		// TODO: there is a call for findDefinition. maybe we should cache local symbols?
-		// TODO: convert list to map
-		gAvailableSymbols = a.availableSymbols(doc, orginatingNode, orginatingNode.StartPoint())
-	}
+// traverse provided symbols and all resolve given symbol iteratively to the final list of identifiers
+// e.g. r1 = foo().bar r2=r1.baz().q.w.e r=r1.r.t.y, should resolve r to [foo, bar, baz, q, w, e, t, y]
+func (a *Analyzer) resolveSymbolIdentifiers(symbols []query.Symbol, sym query.Symbol) []string {
+	resolvedType := sym.Name
 
 	maxResolveSteps := 5 // just to limit
 	for i := 0; i < maxResolveSteps; i++ {
-		// assignment from function or from known proto kinds (str/dict/list)
-		if _, knownKind := query.KnownSymbolKinds[sym.Kind]; knownKind || strings.HasSuffix(sym.Type, ")") {
+
+		t := sym.GetType()
+		if t == "" {
 			break
 		}
 
-		for _, s := range gAvailableSymbols {
-			if s.Name == sym.Type {
+		resolvedType = strings.TrimPrefix(resolvedType, sym.Name)
+		resolvedType = t + resolvedType
+
+		if _, knownKind := query.KnownSymbolKinds[sym.Kind]; knownKind {
+			break
+		}
+
+		parts := strings.SplitN(t, ".", 2)
+		t = parts[0] // take first part and use it as a new type
+		sym = query.Symbol{}
+		for _, s := range symbols {
+			if s.Name == t {
 				sym = s
 				break
 			}
 		}
 	}
-
-	if idx := strings.Index(sym.Type, "("); idx > 0 && sym.Type[len(sym.Type)-1] == ')' { // assignment from function call (e.g. `foo = bar()`)
-		funcName := sym.Type[:idx] // remove everything till the arguments call
-
-		argsNode, _ := query.NodeAtPosition(doc, sym.Location.Range.End) // sym.Location.Range covers entire assignment
-
-		// signatureInformation is expecting to single node and preferrably `attribute` node with 3 kids,
-		// in order to pass it to findTypedMethodForNode. If args node is passed, findTypedMethodForNode will
-		// invoke findAttrObjectExpression on its parent (e.g. `call` node), thus object expression will be resolved correctly.
-		sig, found := a.signatureInformation(doc, argsNode, callWithArguments{fnName: funcName, argsNode: argsNode})
-
-		if found && sig.ReturnType != "" {
-			kind, t := query.StrToSymbolKindAndType(sig.ReturnType)
-			sym.Type = t
-			sym.Kind = kind
+	removeBrackets := func(s string) string { // remove all brackets (..)
+		pattern := `\([^()]*\)`
+		re := regexp.MustCompile(pattern)
+		for re.MatchString(s) {
+			s = re.ReplaceAllString(s, "")
 		}
+		return s
 	}
-	return sym
+
+	identifiers := strings.Split(removeBrackets(resolvedType), ".")
+	a.logger.Debug("resolve symbol identifiers", zap.String("sym", sym.Name), zap.Strings("identifiers", identifiers))
+	return identifiers
 }
 
 // returns available members for a given type
