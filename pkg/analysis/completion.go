@@ -420,6 +420,60 @@ func (a *Analyzer) leafNodesForCompletion(doc document.Document, node *sitter.No
 	return nodes, true
 }
 
+// FIXME(s):
+// - unify with leafNodesForCompletion. Right now just cut-n-paste with small changes.
+// - do it with a query.
+// - do we need prevNamedSibling? do we need argument_list?
+func (a *Analyzer) leafNodesForCompletion2(doc document.Document, node *sitter.Node, pt sitter.Point) ([]*sitter.Node, bool) {
+	leafNodes := []*sitter.Node{}
+
+	//if node.PrevNamedSibling() != nil {
+	//	leafNodes = append(leafNodes, query.LeafNodes(node.PrevNamedSibling())...)
+	//}
+
+	leafNodes = append(leafNodes, query.LeafNodes(node)...)
+
+	leafNodesFiltered := []*sitter.Node{}
+	skip := false
+	for _, n := range leafNodes {
+		if n.Type() == "(" {
+			skip = true
+		}
+		if !skip {
+			leafNodesFiltered = append(leafNodesFiltered, n)
+		}
+		if n.Type() == ")" {
+			skip = false
+		}
+	}
+
+	// count number of trailing id/'.' nodes, if any
+	countIdAndDots := func(nodes []*sitter.Node) int {
+		leafCount := len(nodes)
+		trailingCount := 0
+		for i := 0; i < leafCount && i == trailingCount; i++ {
+			switch nodes[leafCount-1-i].Type() {
+			case query.NodeTypeIdentifier, ".":
+				trailingCount++
+			}
+		}
+		return trailingCount
+	}
+	trailingCount := countIdAndDots(leafNodes)
+	trailingCountF := countIdAndDots(leafNodesFiltered)
+	if trailingCountF > trailingCount {
+		leafNodes = leafNodesFiltered
+		trailingCount = trailingCountF
+	}
+
+	nodes := make([]*sitter.Node, trailingCount)
+	for j := 0; j < len(nodes); j++ {
+		nodes[j] = leafNodes[len(leafNodes)-trailingCount+j]
+	}
+
+	return nodes, true
+}
+
 func (a *Analyzer) keywordArgSymbols(fn query.Signature, args callWithArguments) []query.Symbol {
 	symbols := []query.Symbol{}
 	for i, param := range fn.Params {
