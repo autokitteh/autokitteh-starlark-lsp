@@ -2,7 +2,6 @@ package analysis
 
 import (
 	"fmt"
-	"regexp"
 	"strings"
 
 	"go.lsp.dev/protocol"
@@ -648,14 +647,6 @@ func (a *Analyzer) resolveSymbolIdentifiers(symbols []query.Symbol, sym query.Sy
 				break
 			}
 		}
-	}
-	removeBrackets := func(s string) string { // remove all brackets (..)
-		pattern := `\([^()]*\)`
-		re := regexp.MustCompile(pattern)
-		for re.MatchString(s) {
-			s = re.ReplaceAllString(s, "")
-		}
-		return s
 	}
 
 	identifiers := strings.Split(removeBrackets(resolvedType), ".")
