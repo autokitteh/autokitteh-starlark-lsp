@@ -154,9 +154,21 @@ func (a *Analyzer) completeExpression(doc document.Document, nodes []*sitter.Nod
 		return SymbolsStartingWith(gAvailableSymbols, identifiers[0])
 	}
 
-	if len(nodes) >= 2 && nodes[1].Type() == query.NodeTypeDot && len(identifiers) >= 2 {
-		t := a.analyzeType(doc, nodes[0])
-		identifiers := append([]string{t}, identifiers[1:]...)
+	// TODO: rewrite findObjectExpression or nodesForCompletion to handle uniformily Erorr, Identifier and Attribute
+	// Right now nodesForCompletion returns either identifier and dot nodes or single attribue node (which should be flatten)
+	if len(identifiers) >= 2 { // suspected dot expression
+
+		// if nodes[0].Type() is query.NodeTypeIdentifier
+		idToResolve := identifiers[0]
+		restIds := identifiers[1:]
+		if nodes[0].Type() == query.NodeTypeAttribute {
+			parts := strings.Split(doc.Content(nodes[0]), ".")
+			idToResolve = parts[0]
+			restIds = parts[1:]
+		}
+
+		t := a.resolveSymbolType(doc, nodes[0], []string{idToResolve})
+		identifiers := append([]string{t}, restIds...)
 		if symbols, ok := a.builtinsCompletion(doc, identifiers); ok {
 			return symbols
 		}
@@ -174,7 +186,12 @@ func (a *Analyzer) completeExpression(doc document.Document, nodes []*sitter.Nod
 }
 
 func (a *Analyzer) builtinsCompletion(doc document.Document, identifiers []string) (symbols []query.Symbol, ok bool) {
-	symbols = append(a.builtins.Symbols, doc.Symbols()...) // we need builtins and doc-rebinded ones
+	symbols = a.builtins.Symbols // we need builtins and doc-rebinded ones
+	for _, sym := range doc.Symbols() {
+		if akIsBindedSymbol(sym) {
+			symbols = append(symbols, sym)
+		}
+	}
 
 	ids := identifiers
 	if symbols, ids = a.builtinFuncCompletion(symbols, ids); len(ids) == 0 && len(symbols) > 0 {
@@ -368,7 +385,7 @@ func (a *Analyzer) nodesForCompletion(doc document.Document, node *sitter.Node, 
 		// If inside an attribute expression, capture the larger expression for completion.
 		if node.Parent().Type() == query.NodeTypeAttribute {
 			nodes, _ = a.nodesForCompletion(doc, node.Parent(), pt)
-		}
+		} // TODO: flatten to identifiers and dots to unify completion nodes
 
 	case query.NodeTypeERROR:
 		leafNodes, ok := a.leafNodesForCompletion2(doc, node, pt)
@@ -424,6 +441,7 @@ func (a *Analyzer) leafNodesForCompletion(doc document.Document, node *sitter.No
 // - unify with leafNodesForCompletion. Right now just cut-n-paste with small changes.
 // - do it with a query.
 // - do we need prevNamedSibling? do we need argument_list?
+// - then use it to extract identifiers and dot nodes from attributes as well
 func (a *Analyzer) leafNodesForCompletion2(doc document.Document, node *sitter.Node, pt sitter.Point) ([]*sitter.Node, bool) {
 	leafNodes := []*sitter.Node{}
 
@@ -604,6 +622,7 @@ func (a *Analyzer) analyzeType(doc document.Document, node *sitter.Node) string 
 // e.g. r1 = foo().bar r2=r1.baz().q.w.e r=r1.r.t.y, should resolve r to [foo, bar, baz, q, w, e, t, y]
 func (a *Analyzer) resolveSymbolIdentifiers(symbols []query.Symbol, sym query.Symbol) []string {
 	resolvedType := sym.Name
+	origSymName := sym.Name
 
 	maxResolveSteps := 5 // just to limit
 	for i := 0; i < maxResolveSteps; i++ {
@@ -640,7 +659,7 @@ func (a *Analyzer) resolveSymbolIdentifiers(symbols []query.Symbol, sym query.Sy
 	}
 
 	identifiers := strings.Split(removeBrackets(resolvedType), ".")
-	a.logger.Debug("resolve symbol identifiers", zap.String("sym", sym.Name), zap.Strings("identifiers", identifiers))
+	a.logger.Debug("resolve symbol identifiers", zap.String("sym", origSymName), zap.Strings("identifiers", identifiers))
 	return identifiers
 }
 
