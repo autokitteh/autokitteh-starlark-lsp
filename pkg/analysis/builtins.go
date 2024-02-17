@@ -149,6 +149,7 @@ func LoadBuiltinsFromSource(ctx context.Context, contents []byte, path string) (
 		if s.Kind == protocol.SymbolKindFunction {
 			if f, found := funcMap[s.Name]; found {
 				symbols[i].Type = f.ReturnType
+				symbols[i].Aux = &f
 			}
 		}
 	}
