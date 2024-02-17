@@ -121,6 +121,7 @@ func (s Signature) Symbol() Symbol {
 			Range: s.Range,
 		},
 		Type: s.ReturnType,
+		Aux:  &s,
 	}
 }
 
