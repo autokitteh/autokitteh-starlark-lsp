@@ -153,10 +153,7 @@ func (a *Analyzer) completeExpression(doc document.Document, nodes []*sitter.Nod
 		return SymbolsStartingWith(gAvailableSymbols, identifiers[0])
 	}
 
-	// TODO: rewrite findObjectExpression or nodesForCompletion to handle uniformily Erorr, Identifier and Attribute
-	// Right now nodesForCompletion returns either identifier and dot nodes or single attribue node (which should be flatten)
 	if len(identifiers) >= 2 { // suspected dot expression
-
 		// if nodes[0].Type() is query.NodeTypeIdentifier
 		idToResolve := identifiers[0]
 		restIds := identifiers[1:]
@@ -352,6 +349,9 @@ func (a *Analyzer) nodesAtPointForCompletion(doc document.Document, pt sitter.Po
 
 // Zoom in or out from the node to include adjacent attribute expressions, so we can
 // complete starting from the top-most attribute expression.
+//
+// TODO: rewrite findObjectExpression or nodesForCompletion to handle uniformily Erorr, Identifier and Attribute
+// Right now nodesForCompletion returns either identifier and dot nodes or single attribue node (which should be flatten)
 func (a *Analyzer) nodesForCompletion(doc document.Document, node *sitter.Node, pt sitter.Point) ([]*sitter.Node, bool) {
 	nodes := []*sitter.Node{}
 	switch node.Type() {
@@ -631,7 +631,7 @@ func (a *Analyzer) analyzeType(doc document.Document, node *sitter.Node) string 
 }
 
 // traverse provided symbols and all resolve given symbol iteratively to the final list of identifiers
-// e.g. r1 = foo().bar r2=r1.baz().q.w.e r=r1.r.t.y, should resolve r to [foo, bar, baz, q, w, e, t, y]
+// e.g. r1 = foo().bar r2=r1.baz().q.w.e r=r1.r.t.y, should be resolved to [foo, bar, baz, q, w, e, t, y]
 func (a *Analyzer) resolveSymbolIdentifiers(symbols []query.Symbol, sym query.Symbol) []string {
 	resolvedType := sym.Name
 	origSymName := sym.Name
