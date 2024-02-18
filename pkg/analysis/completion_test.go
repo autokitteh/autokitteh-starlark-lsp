@@ -545,10 +545,10 @@ class C1:
 	mm: str
 	cc: C4
 	
-	def getT() -> str:
+	def getT(arg: str) -> str:
 	    pass
 
-	def getC() -> C3:
+	def getC(c1_getC_1: int) -> C3:
 		"C1 -> GET C3"
 		pass
 	
@@ -576,17 +576,17 @@ def get_c1(s: str) -> C1:
 	"GET C1"
 	return C1()
 
-def get_c2(s: str) -> C2:
+def get_c2(i: int) -> C2:
 	"GET C2"
 	return C2()
 
-def get_s() -> str:
+def get_s(s, ss, sss) -> str:
 	pass
 
-def get_d() -> Dict:
+def get_d(dd: dict) -> Dict:
 	pass
 
-def get_l() -> list:
+def get_l(lll: list|None) -> list:
 	pass
 `
 
@@ -863,6 +863,7 @@ func Test1(t *testing.T) {
 		tData
 		expected []string
 	}{
+		//{tData{doc: "r = {}\nd.pop()", line: 1, char: 6}, []string{"pop"}},
 		//{tData{doc: `r = get_c1().`}, []string{"upper"}},
 		//{tData{doc: `get_c1(bar()).mm.u`}, []string{"upper"}},
 
