@@ -41,3 +41,15 @@ func replaceKnownTypes(parts []string) {
 		}
 	}
 }
+
+func Transform[A, B any](as []A, f func(A) B) []B {
+	if as == nil {
+		return nil
+	}
+
+	bs := make([]B, len(as))
+	for i, a := range as {
+		bs[i] = f(a)
+	}
+	return bs
+}

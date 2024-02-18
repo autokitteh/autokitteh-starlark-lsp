@@ -126,14 +126,8 @@ func (a *Analyzer) completeExpression(doc document.Document, nodes []*sitter.Nod
 
 	a.logger.Debug("completion attempt",
 		zap.String("code", document.NodesToContent(doc, nodes)),
-		zap.Strings("nodes", func() []string {
-			types := make([]string, len(nodes))
-			for i, n := range nodes {
-				types[i] = n.Type()
-			}
-			return types
-		}()),
 		zap.Strings("identifiers", identifiers),
+		zap.Strings("nodes", Transform(nodes, func(n *sitter.Node) string { return n.String() })),
 	)
 
 	if len(identifiers) == 0 {
