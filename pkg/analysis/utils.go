@@ -30,3 +30,14 @@ func removeBrackets(s string) string { // remove all brackets (..)
 	}
 	return s
 }
+
+func replaceKnownTypes(parts []string) {
+	replacementMap := map[byte]string{'"': "String", '{': "Dict", '[': "List"}
+	for i, s := range parts {
+		if len(s) > 0 {
+			if t, found := replacementMap[s[0]]; found {
+				parts[i] = t
+			}
+		}
+	}
+}

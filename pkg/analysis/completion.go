@@ -663,6 +663,7 @@ func (a *Analyzer) resolveSymbolIdentifiers(symbols []query.Symbol, sym query.Sy
 	}
 
 	identifiers := strings.Split(removeBrackets(resolvedType), ".")
+	replaceKnownTypes(identifiers)
 	a.logger.Debug("resolve symbol identifiers", zap.String("sym", origSymName), zap.Strings("identifiers", identifiers))
 	return identifiers
 }
