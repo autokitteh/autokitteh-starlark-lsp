@@ -31,40 +31,30 @@ func (a *Analyzer) signatureInformation(doc document.Document, node *sitter.Node
 	// get identifiers old-fashioned way
 	s := removeBrackets(fnName)
 	identifiers := strings.Split(s, ".")
-	// pt := args.argsNode.StartPoint()
-	// identifiers := query.ExtractIdentifiers(doc, []*sitter.Node{node.Parent()}, &pt)
 
-	if syms, ok := a.builtinsCompletion(doc, identifiers); ok && len(syms) == 1 {
-		return sigToRet(syms[0].Signature())
+	pt := args.argsNode.EndPoint()
+	n := args.argsNode.Parent()
+
+	// resolve call node to completion nodes and get the first one
+	if nodes, _ := a.nodesForCompletion(doc, n, pt); len(nodes) > 0 {
+		n = nodes[0]
 	}
 
-	if len(identifiers) < 2 { // possible dot expression
-		return sig, false
+	sym := a.resolveNode(doc, n)
+	if len(identifiers) > 1 {
+		identifiers = append([]string{sym.GetType()}, identifiers[1:]...)
 	}
-
-	// TODO: ensure that first identifier is a variable
-	// assume for meanwhile that identifiers[0] is var and replace recursive calls
-	// signatureInfo()-> findTypedMethodForNode()-> .. analyzeType()-> signatureInfo()
-	// by iteration
-	t := a.resolveSymbolType(doc, node, []string{identifiers[0]})
-	identifiers = append([]string{t}, identifiers[1:]...)
-	if syms, ok := a.builtinsCompletion(doc, identifiers); ok && len(syms) == 1 {
-		return sigToRet(syms[0].Signature())
+	if syms, ok := a.builtinsCompletion(doc, identifiers); ok && len(syms) >= 1 {
+		for _, s := range syms { // there could be multiple matches, e.g. Dict::pop vs. popitem
+			if s.Name == identifiers[len(identifiers)-1] {
+				return sigToRet(s.Signature())
+			}
+		}
 	}
-
-	// fallback to original tilt version
-	// ind := strings.LastIndex(fnName, ".") // we remove brackets, so use original fnName
-	// mName := fnName[ind+1:]
-	// sig = a.builtins.Methods[mName]
-	// if sig.Name != "" { // there could be several methods with the same name. Just check before resolving recursively
-	// 	method, found := a.findTypedMethodForNode(doc, node, mName, args)
-	//	if found {
-	//		sig = method
-	//	}
-	//}
 	return sig, sig.Name != ""
 }
 
+/*
 func (a *Analyzer) findTypedMethod(typeName string, methodName string) (query.Signature, bool) {
 	sig := query.Signature{}
 	if typeName != "" && methodName != "" {
@@ -91,6 +81,7 @@ func (a *Analyzer) findTypedMethodForNode(doc document.Document, node *sitter.No
 	typeName := a.analyzeType(doc, expr)
 	return a.findTypedMethod(typeName, methodName)
 }
+*/
 
 func (a *Analyzer) SignatureHelp(doc document.Document, pos protocol.Position) *protocol.SignatureHelp {
 	pt := query.PositionToPoint(pos)
