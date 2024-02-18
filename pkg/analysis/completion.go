@@ -454,22 +454,22 @@ func (a *Analyzer) leafNodesForCompletion(doc document.Document, node *sitter.No
 func (a *Analyzer) leafNodesForCompletion2(doc document.Document, node *sitter.Node, pt sitter.Point) ([]*sitter.Node, bool) {
 	leafNodes := []*sitter.Node{}
 
-	//if node.PrevNamedSibling() != nil {
-	//	leafNodes = append(leafNodes, query.LeafNodes(node.PrevNamedSibling())...)
-	//}
+	skipMap := map[string]string{"(": ")", "[": "]", "{": "}", "\"": "\""}
 
 	leafNodes = append(leafNodes, query.LeafNodes(node)...)
 
 	leafNodesFiltered := []*sitter.Node{}
-	skip := false
+	skip, found := false, false
+	skipEnd := ""
 	for _, n := range leafNodes {
-		if n.Type() == "(" {
-			skip = true
-		}
 		if !skip {
+			if skipEnd, found = skipMap[n.Type()]; found {
+				skip = true
+				continue
+			}
 			leafNodesFiltered = append(leafNodesFiltered, n)
 		}
-		if n.Type() == ")" {
+		if n.Type() == skipEnd {
 			skip = false
 		}
 	}
@@ -480,7 +480,8 @@ func (a *Analyzer) leafNodesForCompletion2(doc document.Document, node *sitter.N
 		trailingCount := 0
 		for i := 0; i < leafCount && i == trailingCount; i++ {
 			switch nodes[leafCount-1-i].Type() {
-			case query.NodeTypeIdentifier, ".":
+			case query.NodeTypeIdentifier, query.NodeTypeDot,
+				query.NodeTypeList, query.NodeTypeDictionary, query.NodeTypeString:
 				trailingCount++
 			}
 		}
