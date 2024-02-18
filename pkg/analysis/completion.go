@@ -163,7 +163,7 @@ func (a *Analyzer) completeExpression(doc document.Document, nodes []*sitter.Nod
 			restIds = parts[1:]
 		}
 
-		t := a.resolveSymbolType(doc, nodes[0], []string{idToResolve})
+		t := a.resolveNodeWithSymbol(doc, nodes[0], []string{idToResolve}).GetType()
 		identifiers := append([]string{t}, restIds...)
 		if symbols, ok := a.builtinsCompletion(doc, identifiers); ok {
 			return symbols
@@ -394,9 +394,9 @@ func (a *Analyzer) nodesForCompletion(doc document.Document, node *sitter.Node, 
 		// If inside an attribute expression, capture the larger expression for completion.
 		if node.Parent().Type() == query.NodeTypeAttribute {
 			nodes, _ = a.nodesForCompletion(doc, node.Parent(), pt)
-		} // TODO: flatten to identifiers and dots to unify completion nodes
+		} // TODO: flatten attribute to identifiers and dots to unify completion nodes
 
-	case query.NodeTypeERROR:
+	case query.NodeTypeERROR, query.NodeTypeCall:
 		leafNodes, ok := a.leafNodesForCompletion2(doc, node, pt)
 		if len(leafNodes) > 0 {
 			return leafNodes, ok
@@ -585,24 +585,41 @@ func (a *Analyzer) findObjectExpression(nodes []*sitter.Node, pt sitter.Point) *
 	return expr
 }
 
-func (a *Analyzer) resolveSymbolType(doc document.Document, node *sitter.Node, symParts []string) string {
-	symbols := gAvailableSymbols
-	if len(symbols) == 0 { // no cache
-		symbols = docAndScopeSymbols(doc, node)
-	}
-
+func (a *Analyzer) resolveNodeWithSymbol(doc document.Document, node *sitter.Node, symParts []string) query.Symbol {
 	if sym, found := a.FindDefinition(doc, node, symParts[0]); found {
+		// TODO: handle better symbols. we already compute symbols in findDefinition
 		if sym.Kind == protocol.SymbolKindVariable {
+			symbols := gAvailableSymbols
+			if len(symbols) == 0 { // no cache
+				symbols = docAndScopeSymbols(doc, node) // to resolve variable we need only doc and scope
+			}
 			identifiers := a.resolveSymbolIdentifiers(symbols, sym)
 			identifiers = append(identifiers, symParts[1:]...)
 			a.logger.Debug("resolved node identifiers", zap.String("node", doc.Content(node)), zap.Strings("identifiers", identifiers))
-			syms, ok := a.builtinsCompletion(doc, identifiers)
-			if ok && len(syms) == 1 {
-				return syms[0].GetType()
+			if symbols, ok := a.builtinsCompletion(doc, identifiers); ok && len(symbols) == 1 {
+				return symbols[0]
 			}
+		} else if sym.Kind == protocol.SymbolKindFunction {
+			if symbols, ok := a.builtinsCompletion(doc, symParts); ok && len(symbols) == 1 {
+				return symbols[0]
+			}
+		} else if t := query.SymbolKindToBuiltinType(sym.Kind); t != "" {
+			return query.Symbol{Name: symParts[0], Type: t}
 		}
 	}
-	return ""
+	return query.Symbol{}
+}
+
+func (a *Analyzer) resolveNode(doc document.Document, node *sitter.Node) query.Symbol {
+	parts := strings.Split(doc.Content(node), ".")
+	switch node.Type() {
+	case query.NodeTypeString, query.NodeTypeDictionary, query.NodeTypeList:
+		return query.Symbol{Name: parts[0], Type: query.SymbolKindToBuiltinType(query.StrToSymbolKind(node.Type()))}
+
+	case query.NodeTypeIdentifier, query.NodeTypeAttribute:
+		return a.resolveNodeWithSymbol(doc, node, parts)
+	}
+	return query.Symbol{}
 }
 
 // Perform some rudimentary type analysis to determine the Starlark type of the node
@@ -616,10 +633,10 @@ func (a *Analyzer) analyzeType(doc document.Document, node *sitter.Node) string 
 		return query.SymbolKindToBuiltinType(query.StrToSymbolKind(nodeT))
 
 	case query.NodeTypeIdentifier:
-		return a.resolveSymbolType(doc, node, []string{doc.Content(node)})
+		return a.resolveNodeWithSymbol(doc, node, []string{doc.Content(node)}).GetType()
 
 	case query.NodeTypeAttribute:
-		return a.resolveSymbolType(doc, node, strings.Split(doc.Content(node), "."))
+		return a.resolveNodeWithSymbol(doc, node, strings.Split(doc.Content(node), ".")).GetType()
 
 	case query.NodeTypeCall:
 		fnName := doc.Content(node.ChildByFieldName("function"))
