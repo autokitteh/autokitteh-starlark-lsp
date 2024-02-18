@@ -344,168 +344,168 @@ func TestKeywordArgCompletion(t *testing.T) {
 	}
 }
 
-/*
-	func TestMemberCompletion(t *testing.T) {
-		f := newFixture(t)
-		_ = WithStarlarkBuiltins()(f.a)
+func TestMemberCompletion(t *testing.T) {
+	f := newFixture(t)
+	f.builtinSymbols()
+	tests := []struct {
+		tData
+		expected []string
+	}{
+		{tData{doc: "pr"}, []string{"print"}},
+		{tData{doc: "def print2():\n  print3=print2()\n  pr"}, []string{"print", "print2", "print3"}},
+		{tData{doc: "pr.endswith"}, []string{}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.doc, func(t *testing.T) {
+			doc := f.MainDoc(tt.doc)
+			pos := testPosition(tt.tData)
+			result := f.a.Completion(doc, pos)
+			assertCompletionResult(t, tt.expected, result)
+		})
+	}
+}
 
-		tests := []struct {
-			doc        string
-			line, char uint32
-			expected   []string
-		}{
-			{doc: "pr", char: 2, expected: []string{"print"}},
-			{doc: "pr.endswit", char: 6, expected: []string{}}, // ak: do not complete on unknown types (vs. tilt)
-		}
-		for _, tt := range tests {
-			t.Run(tt.doc, func(t *testing.T) {
-				doc := f.MainDoc(tt.doc)
-				result := f.a.Completion(doc, protocol.Position{Line: tt.line, Character: tt.char})
-				assertCompletionResult(t, tt.expected, result)
-			})
-		}
+/*
+func TestTypedMemberCompletion(t *testing.T) {
+	f := newFixture(t)
+	f.builtinSymbols()
+
+	// FIXME: replace by get_d, get_N, get_s
+	f.builtins.Functions["foo"] = query.Signature{
+		Name:       "foo",
+		ReturnType: "str",
+	}
+	f.builtins.Functions["bar"] = query.Signature{
+		Name:       "bar",
+		ReturnType: "None",
+	}
+	f.builtins.Functions["baz"] = query.Signature{
+		Name:       "baz",
+		ReturnType: "dict",
 	}
 
-	func TestTypedMemberCompletion(t *testing.T) {
-		f := newFixture(t)
-		f.builtinSymbols()
-
-		// FIXME: replace by get_d, get_N, get_s
-		f.builtins.Functions["foo"] = query.Signature{
-			Name:       "foo",
-			ReturnType: "str",
-		}
-		f.builtins.Functions["bar"] = query.Signature{
-			Name:       "bar",
-			ReturnType: "None",
-		}
-		f.builtins.Functions["baz"] = query.Signature{
-			Name:       "baz",
-			ReturnType: "dict",
-		}
-
-		tests := []struct {
-			tData
-			expected []string
-		}{
-			{tData{doc: `s = ""
+	tests := []struct {
+		tData
+		expected []string
+	}{
+		{tData{doc: `s = ""
 			s.u`}, []string{"upper"}},
-			{tData{doc: `"".u`}, []string{"upper"}},
-			{tData{doc: `"".keys`}, []string{}},
-			{tData{doc: `"".append`}, []string{}},
+		{tData{doc: `"".u`}, []string{"upper"}},
+		{tData{doc: `"".keys`}, []string{}},
+		{tData{doc: `"".append`}, []string{}},
 
-			{tData{doc: `d = {}
+		{tData{doc: `d = {}
 			d.k`}, []string{"keys"}},
-			{tData{doc: `{}.k`}, []string{"keys"}},
-			{tData{doc: `{}.upper`}, []string{}},
-			{tData{doc: `{}.append`}, []string{}},
+		{tData{doc: `{}.k`}, []string{"keys"}},
+		{tData{doc: `{}.upper`}, []string{}},
+		{tData{doc: `{}.append`}, []string{}},
 
-			{tData{doc: `l = []
+		{tData{doc: `l = []
 			l.a`}, []string{"append"}},
-			{tData{doc: `[].a`}, []string{"append"}},
-			{tData{doc: `[].keys`}, []string{}},
-			{tData{doc: `[].upper`}, []string{}},
+		{tData{doc: `[].a`}, []string{"append"}},
+		{tData{doc: `[].keys`}, []string{}},
+		{tData{doc: `[].upper`}, []string{}},
 
-			{tData{doc: `foo().u`}, []string{"upper"}},
-			{tData{doc: `bar().`}, []string{}},
+		{tData{doc: `foo().u`}, []string{"upper"}},
+		{tData{doc: `bar().`}, []string{}},
 
-			// zero char/only dot completion
-			{tData{doc: `s = ""
+		// zero char/only dot completion
+		{tData{doc: `s = ""
 			s.`}, allStringFuncs},
-			{tData{doc: `l = []
+		{tData{doc: `l = []
 			l.`}, allListFuncs},
-			{tData{doc: `d = {}
+		{tData{doc: `d = {}
 			d.`}, allDictFuncs},
 
-			// FIXME: why? should it be allFuncs?
-			// empty string/list/dict
-			{tData{doc: `"".`}, []string{}},
-			{tData{doc: `[].`}, []string{}},
-			{tData{doc: `{}.`}, []string{}},
+		// FIXME: why? should it be allFuncs?
+		// empty string/list/dict
+		{tData{doc: `"".`}, []string{}},
+		{tData{doc: `[].`}, []string{}},
+		{tData{doc: `{}.`}, []string{}},
 
-			// type propagation
-			{tData{doc: `s = ""
+		// type propagation
+		{tData{doc: `s = ""
 			ss = s
 			s.`}, allStringFuncs},
-			{tData{doc: `l = []
+		{tData{doc: `l = []
 			ll = l
 			l.`}, allListFuncs},
-			{tData{doc: `d = {}
+		{tData{doc: `d = {}
 			dd = d
 			d.`}, allDictFuncs},
 
-			// func1 -> type1, type1.func2 -> type2
-			{tData{doc: `s = foo()
+		// func1 -> type1, type1.func2 -> type2
+		{tData{doc: `s = foo()
 			s.`}, allStringFuncs},
-			{tData{doc: `d = baz()
+		{tData{doc: `d = baz()
 			d.`}, allDictFuncs},
-			{tData{doc: `d = baz()
+		{tData{doc: `d = baz()
 			l = d.keys()
 			l.`}, allListFuncs},
-			{tData{doc: `d = {}
+		{tData{doc: `d = {}
 			l = d.keys()
 			l.`}, allListFuncs},
 
-			// FIXME: understand how this works?
-			// nested
-			{tData{doc: `"".upper().u`}, []string{"upper"}},
-			{tData{doc: `"".upper().upper().u`}, []string{"upper"}},
-			{tData{doc: `{}.keys().u`}, []string{}}, // list, not string
-			{tData{doc: `{}.keys().a`}, []string{"append"}},
+		// FIXME: understand how this works?
+		// nested
+		{tData{doc: `"".upper().u`}, []string{"upper"}},
+		{tData{doc: `"".upper().upper().u`}, []string{"upper"}},
+		{tData{doc: `{}.keys().u`}, []string{}}, // list, not string
+		{tData{doc: `{}.keys().a`}, []string{"append"}},
 
-			{tData{doc: `s = ""
+		{tData{doc: `s = ""
 			s.upper().u`}, []string{"upper"}},
-			{tData{doc: `s = "".upper()
+		{tData{doc: `s = "".upper()
 			s.u`}, []string{"upper"}},
-			{tData{doc: `s = "".upper()
+		{tData{doc: `s = "".upper()
 			s.upper().u`}, []string{"upper"}},
-			{tData{doc: `d = {}
+		{tData{doc: `d = {}
 			d.keys().a`}, []string{"append"}},
-		}
-
-		for _, tt := range tests {
-			t.Run(tt.doc, func(t *testing.T) {
-				doc := f.MainDoc(tt.doc)
-				pos := testPosition(tt.tData)
-				result := f.a.Completion(doc, pos)
-				assertCompletionResult(t, tt.expected, result)
-			})
-		}
 	}
 
-	func TestFindObjectExpression(t *testing.T) {
-		f := newFixture(t)
-		tests := []struct {
-			doc                string
-			line, char         uint32
-			expectedNodeTypes  []string
-			expectedParentTree string
-		}{
-			{
-				doc: `foo.bar()`, char: 4, expectedNodeTypes: []string{"attribute"},
-				expectedParentTree: `
+	for _, tt := range tests {
+		t.Run(tt.doc, func(t *testing.T) {
+			doc := f.MainDoc(tt.doc)
+			pos := testPosition(tt.tData)
+			result := f.a.Completion(doc, pos)
+			assertCompletionResult(t, tt.expected, result)
+		})
+	}
+}
+
+func TestFindObjectExpression(t *testing.T) {
+	f := newFixture(t)
+	tests := []struct {
+		doc                string
+		line, char         uint32
+		expectedNodeTypes  []string
+		expectedParentTree string
+	}{
+		{
+			doc: `foo.bar()`, char: 4, expectedNodeTypes: []string{"attribute"},
+			expectedParentTree: `
 
 attribute (N): foo.bar
 
 	  identifier (N): foo
 	  . (U): .
 	  identifier (N): bar`,
-			},
+		},
 
-			{
-				doc: `foo.`, char: 4, expectedNodeTypes: []string{"identifier", "."},
-				expectedParentTree: `
+		{
+			doc: `foo.`, char: 4, expectedNodeTypes: []string{"identifier", "."},
+			expectedParentTree: `
 
 module (N): foo.
 
 	  ERROR (N): foo.
 	    identifier (N): foo
 	    . (U): .`,
-			},
+		},
 
-			{
-				doc: `baz(foo.)`, char: 8, expectedNodeTypes: []string{"identifier", "."},
-				expectedParentTree: `
+		{
+			doc: `baz(foo.)`, char: 8, expectedNodeTypes: []string{"identifier", "."},
+			expectedParentTree: `
 
 argument_list (N): (foo.)
 
@@ -514,31 +514,33 @@ argument_list (N): (foo.)
 	  ERROR (N): .
 	    . (U): .
 	  ) (U): )`,
-			},
-		}
-
-		for _, tt := range tests {
-			t.Run(tt.doc, func(t *testing.T) {
-				doc := f.MainDoc(tt.doc)
-				pos := protocol.Position{Line: tt.line, Character: tt.char}
-				pt := query.PositionToPoint(pos)
-
-				n, _ := query.NodeAtPosition(doc, pos)
-				assert.Equal(t, tt.expectedParentTree, printNodeTree(doc, n.Parent(), ""))
-				nodes, _ := f.a.nodesForCompletion(doc, n, pt) // simulate the flow
-				nodeTypes := []string{}
-				for _, n := range nodes {
-					nodeTypes = append(nodeTypes, n.Type())
-				}
-				assert.ElementsMatch(t, tt.expectedNodeTypes, nodeTypes)
-
-				objNode := f.a.findObjectExpression(nodes, pt)
-				assert.Equal(t, objNode.Type(), "identifier")
-				assert.Equal(t, doc.Content(objNode), "foo")
-			})
-		}
+		},
 	}
+
+	for _, tt := range tests {
+		t.Run(tt.doc, func(t *testing.T) {
+			doc := f.MainDoc(tt.doc)
+			pos := protocol.Position{Line: tt.line, Character: tt.char}
+			pt := query.PositionToPoint(pos)
+
+			n, _ := query.NodeAtPosition(doc, pos)
+			assert.Equal(t, tt.expectedParentTree, printNodeTree(doc, n.Parent(), ""))
+			nodes, _ := f.a.nodesForCompletion(doc, n, pt) // simulate the flow
+			nodeTypes := []string{}
+			for _, n := range nodes {
+				nodeTypes = append(nodeTypes, n.Type())
+			}
+			assert.ElementsMatch(t, tt.expectedNodeTypes, nodeTypes)
+
+			objNode := f.a.findObjectExpression(nodes, pt)
+			assert.Equal(t, objNode.Type(), "identifier")
+			assert.Equal(t, doc.Content(objNode), "foo")
+		})
+	}
+}
+
 */
+
 const funcsAndObjectsFixture = `
 class C1:
 	i1: int

@@ -144,13 +144,15 @@ func (a *Analyzer) completeExpression(doc document.Document, nodes []*sitter.Nod
 		return symbols
 	}
 
-	if symbols, ok := a.builtinsCompletion(doc, identifiers); ok {
-		return symbols
+	if len(identifiers) == 1 { // REVIEW: could we miss any case?
+		symbols = SymbolsStartingWith(gAvailableSymbols, identifiers[0])
+		if len(symbols) > 0 {
+			return symbols
+		}
 	}
 
-	if len(identifiers) == 1 { // REVIEW: any cases where more than 1 identifier?
-		a.logger.Debug("completion attempt local/global", zap.Strings("ids", identifiers))
-		return SymbolsStartingWith(gAvailableSymbols, identifiers[0])
+	if symbols, ok := a.builtinsCompletion(doc, identifiers); ok {
+		return symbols
 	}
 
 	if len(identifiers) >= 2 { // suspected dot expression
@@ -239,7 +241,7 @@ func (a *Analyzer) builtinFuncCompletion(symbols []query.Symbol, identifiers []s
 		identifiers = identifiers[i+1:]
 	}
 
-	if len(symbols) == 1 { // exact, but uncomplete resolving, update type
+	if len(symbols) == 1 && sym.Name != "" { // exact, but uncomplete resolving, update type
 		if t := query.SymbolKindToBuiltinType(sym.Kind); t != "" && i == 0 { // String, Dict, List
 			identifiers = append([]string{t}, identifiers...)
 		} else { // method/function
