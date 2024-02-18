@@ -10,59 +10,58 @@ import (
 	"github.com/autokitteh/starlark-lsp/pkg/query"
 )
 
-func (a *Analyzer) builtinSignatureInfo(topLevelPart string, rest string) (query.Signature, bool) {
-	var sig query.Signature
-	sym := akSymbolMatching(a.builtins.Symbols, topLevelPart)
-	if sym.Name != "" {
-		sig, _ = a.builtins.Functions[topLevelPart+"."+rest]
-	}
-	return sig, sym.Name != ""
-}
-
 func (a *Analyzer) signatureInformation(doc document.Document, node *sitter.Node, args callWithArguments) (query.Signature, bool) {
 	var sig query.Signature
 	var found bool
 	fnName := args.fnName
 
-	// Try to find funcs in the following order: local/global scope, exact builtins, rebinded builtins, methods
-	// NOTE: that functions imported from builtins have a dot in their name denoting imported path,
-	// e.g. dir.file.func, but those functiosn aren't methods
-
+	sigToRet := func(sig query.Signature) (query.Signature, bool) {
+		return sig, sig.Name != ""
+	}
 	for n := node; n != nil && !query.IsModuleScope(doc, n); n = n.Parent() {
 		if sig, found = query.Function(doc, n, fnName); found {
-			return sig, sig.Name != ""
+			return sigToRet(sig)
 		}
 	}
 
 	if sig, found = doc.Functions()[fnName]; found {
-		return sig, sig.Name != ""
+		return sigToRet(sig)
 	}
 
-	// exact builtin matching
-	if sig, found = a.builtins.Functions[fnName]; found {
-		return sig, sig.Name != ""
+	// get identifiers old-fashioned way
+	s := removeBrackets(fnName)
+	identifiers := strings.Split(s, ".")
+	// pt := args.argsNode.StartPoint()
+	// identifiers := query.ExtractIdentifiers(doc, []*sitter.Node{node.Parent()}, &pt)
+
+	if syms, ok := a.builtinsCompletion(doc, identifiers); ok && len(syms) == 1 {
+		return sigToRet(syms[0].Signature())
 	}
 
-	if !strings.ContainsAny(fnName, ".") {
+	if len(identifiers) < 2 { // possible dot expression
 		return sig, false
 	}
 
-	// ak: handle rebinded builtins ------------------------------------------
-	ind := strings.Index(fnName, ".")
-	if sig, symFound := a.builtinSignatureInfo(fnName[:ind], fnName[ind+1:]); symFound {
-		return sig, sig.Name != "" // don't continue if sym was found
-	} // ---------------------------------------------------------------------
-
-	// at last, try to find whether it's a method
-	ind = strings.LastIndex(fnName, ".")
-	mName := fnName[ind+1:]
-	sig = a.builtins.Methods[mName]
-	if sig.Name != "" {
-		method, found := a.findTypedMethodForNode(doc, node, mName, args)
-		if found {
-			sig = method
-		}
+	// TODO: ensure that first identifier is a variable
+	// assume for meanwhile that identifiers[0] is var and replace recursive calls
+	// signatureInfo()-> findTypedMethodForNode()-> .. analyzeType()-> signatureInfo()
+	// by iteration
+	t := a.resolveSymbolType(doc, node, []string{identifiers[0]})
+	identifiers = append([]string{t}, identifiers[1:]...)
+	if syms, ok := a.builtinsCompletion(doc, identifiers); ok && len(syms) == 1 {
+		return sigToRet(syms[0].Signature())
 	}
+
+	// fallback to original tilt version
+	// ind := strings.LastIndex(fnName, ".") // we remove brackets, so use original fnName
+	// mName := fnName[ind+1:]
+	// sig = a.builtins.Methods[mName]
+	// if sig.Name != "" { // there could be several methods with the same name. Just check before resolving recursively
+	// 	method, found := a.findTypedMethodForNode(doc, node, mName, args)
+	//	if found {
+	//		sig = method
+	//	}
+	//}
 	return sig, sig.Name != ""
 }
 
