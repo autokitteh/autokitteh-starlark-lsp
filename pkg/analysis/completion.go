@@ -298,6 +298,16 @@ func (a *Analyzer) builtinTypeNestedCompletion(identifiers []string) ([]query.Sy
 	return symbols, identifiers
 }
 
+func docAndScopeSymbols(doc document.Document, node *sitter.Node) (symbols []query.Symbol) {
+	if node != nil {
+		symbols = query.SymbolsInScope(doc, node)
+	}
+	// REVIEW: will local symbols override global ones, since they appear in list earlier?
+	// should we exclude same named symbols similarly to how it's done in availableSymbols?
+	symbols = append(symbols, doc.Symbols()...)
+	return symbols
+}
+
 // Returns a list of available symbols for completion as follows:
 //   - If in a function argument list, include keyword args for that function
 //   - Add symbols in scope for the node at point, excluding symbols at the module
@@ -575,11 +585,14 @@ func (a *Analyzer) findObjectExpression(nodes []*sitter.Node, pt sitter.Point) *
 }
 
 func (a *Analyzer) resolveSymbolType(doc document.Document, node *sitter.Node, symParts []string) string {
-	// FIXME: handle symbols better (gAvailable vs findDefinition). We need only scope + doc
-	// node is passed only for the scope purposes
+	symbols := gAvailableSymbols
+	if len(symbols) == 0 { // no cache
+		symbols = docAndScopeSymbols(doc, node)
+	}
+
 	if sym, found := a.FindDefinition(doc, node, symParts[0]); found {
 		if sym.Kind == protocol.SymbolKindVariable {
-			identifiers := a.resolveSymbolIdentifiers(gAvailableSymbols, sym)
+			identifiers := a.resolveSymbolIdentifiers(symbols, sym)
 			identifiers = append(identifiers, symParts[1:]...)
 			a.logger.Debug("resolved node identifiers", zap.String("node", doc.Content(node)), zap.Strings("identifiers", identifiers))
 			syms, ok := a.builtinsCompletion(doc, identifiers)
