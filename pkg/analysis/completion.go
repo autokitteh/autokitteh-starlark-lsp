@@ -419,10 +419,9 @@ func (a *Analyzer) leafNodesForCompletion(doc document.Document, node *sitter.No
 }
 
 // FIXME(s):
-// - unify with leafNodesForCompletion. Right now just cut-n-paste with small changes.
-// - do it with a query.
-// - do we need prevNamedSibling? do we need argument_list?
-// - then use it to extract identifiers and dot nodes from attributes as well
+// - unify with leafNodesForCompletion. Right now just cut-n-paste with small changes (no prevNamedSibling and filtering)
+// - do it with a query? do we need prevNamedSibling? do we need argument_list or we could filter it?
+// - after unifying use it to extract identifiers and dot nodes from attributes as well
 func (a *Analyzer) leafNodesForCompletion2(doc document.Document, node *sitter.Node, pt sitter.Point) ([]*sitter.Node, bool) {
 	leafNodes := []*sitter.Node{}
 
@@ -518,19 +517,26 @@ func (a *Analyzer) resolveNodeWithSymbol(doc document.Document, node *sitter.Nod
 
 // Perform some rudimentary type analysis to determine the Starlark type of the node
 func (a *Analyzer) analyzeType(doc document.Document, node *sitter.Node) query.Symbol {
-	parts := strings.Split(doc.Content(node), ".") // extract first part, e.g. from attribute node
+	s := doc.Content(node)
 	switch node.Type() {
 	case query.NodeTypeString, query.NodeTypeDictionary, query.NodeTypeList:
-		return query.Symbol{Name: parts[0], Type: query.SymbolKindToBuiltinType(query.StrToSymbolKind(node.Type()))}
+		k, t := query.StrToSymbolKindAndType(node.Type())
+		return query.Symbol{Name: s, Type: t, Kind: k}
 
-	case query.NodeTypeIdentifier, query.NodeTypeAttribute:
-		return a.resolveNodeWithSymbol(doc, node, parts[0])
+	case query.NodeTypeIdentifier:
+		return a.resolveNodeWithSymbol(doc, node, s)
+
+	case query.NodeTypeAttribute:
+		return a.analyzeType(doc, node.ChildByFieldName("object"))
 
 	case query.NodeTypeCall:
-		fnName := doc.Content(node.ChildByFieldName("function"))
-		args := node.ChildByFieldName("arguments")
-		sig, _ := a.signatureInformation(doc, node, callWithArguments{fnName: fnName, argsNode: args})
-		return sig.Symbol()
+		return a.analyzeType(doc, node.ChildByFieldName("function"))
+
+		// case query.NodeTypeCall:
+		// 	fnName := doc.Content(node.ChildByFieldName("function"))
+		// 	args := node.ChildByFieldName("arguments")
+		// 	sig, _ := a.signatureInformation(doc, node, callWithArguments{fnName: fnName, argsNode: args})
+		// 	return sig.Symbol()
 	}
 	return query.Symbol{}
 }
