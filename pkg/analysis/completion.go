@@ -145,35 +145,11 @@ func (a *Analyzer) completeExpression(doc document.Document, nodes []*sitter.Nod
 		}
 	}
 
-	if symbols, ok := a.builtinsCompletion(doc, identifiers); ok {
-		return symbols
+	sym := a.resolveNode(doc, nodes[0])
+	if sym.Type != "" {
+		identifiers = append([]string{sym.GetType()}, identifiers[1:]...)
 	}
-
-	if len(identifiers) >= 2 { // suspected dot expression
-		// if nodes[0].Type() is query.NodeTypeIdentifier
-		idToResolve := identifiers[0]
-		restIds := identifiers[1:]
-		if nodes[0].Type() == query.NodeTypeAttribute {
-			parts := strings.Split(doc.Content(nodes[0]), ".")
-			idToResolve = parts[0]
-			restIds = parts[1:]
-		}
-
-		t := a.resolveNodeWithSymbol(doc, nodes[0], []string{idToResolve}).GetType()
-		identifiers := append([]string{t}, restIds...)
-		if symbols, ok := a.builtinsCompletion(doc, identifiers); ok {
-			return symbols
-		}
-	}
-
-	// failback. original version. search for last dot completions
-	lastId := identifiers[len(identifiers)-1]
-	expr := a.findObjectExpression(nodes, sitter.Point{Row: pt.Row, Column: pt.Column - uint32(len(lastId))})
-	if expr != nil {
-		a.logger.Debug("dot object completion", zap.Strings("objs", identifiers[:len(identifiers)-1]))
-		symbols = SymbolsStartingWith(a.availableMembersForNode(doc, expr), lastId)
-	}
-
+	symbols, _ = a.builtinsCompletion(doc, identifiers)
 	return symbols
 }
 
@@ -581,8 +557,8 @@ func (a *Analyzer) findObjectExpression(nodes []*sitter.Node, pt sitter.Point) *
 	return expr
 }
 
-func (a *Analyzer) resolveNodeWithSymbol(doc document.Document, node *sitter.Node, symParts []string) query.Symbol {
-	if sym, found := a.FindDefinition(doc, node, symParts[0]); found {
+func (a *Analyzer) resolveNodeWithSymbol(doc document.Document, node *sitter.Node, symbol string) query.Symbol {
+	if sym, found := a.FindDefinition(doc, node, symbol); found {
 		// TODO: handle better symbols. we already compute symbols in findDefinition
 		if sym.Kind == protocol.SymbolKindVariable {
 			symbols := gAvailableSymbols
@@ -590,30 +566,29 @@ func (a *Analyzer) resolveNodeWithSymbol(doc document.Document, node *sitter.Nod
 				symbols = docAndScopeSymbols(doc, node) // to resolve variable we need only doc and scope
 			}
 			identifiers := a.resolveSymbolIdentifiers(symbols, sym)
-			identifiers = append(identifiers, symParts[1:]...)
 			a.logger.Debug("resolved node identifiers", zap.String("node", doc.Content(node)), zap.Strings("identifiers", identifiers))
 			if symbols, ok := a.builtinsCompletion(doc, identifiers); ok && len(symbols) == 1 {
 				return symbols[0]
 			}
 		} else if sym.Kind == protocol.SymbolKindFunction {
-			if symbols, ok := a.builtinsCompletion(doc, symParts); ok && len(symbols) == 1 {
+			if symbols, ok := a.builtinsCompletion(doc, []string{symbol}); ok && len(symbols) == 1 {
 				return symbols[0]
 			}
 		} else if t := query.SymbolKindToBuiltinType(sym.Kind); t != "" {
-			return query.Symbol{Name: symParts[0], Type: t}
+			return query.Symbol{Name: symbol, Type: t}
 		}
 	}
 	return query.Symbol{}
 }
 
 func (a *Analyzer) resolveNode(doc document.Document, node *sitter.Node) query.Symbol {
-	parts := strings.Split(doc.Content(node), ".")
+	parts := strings.Split(doc.Content(node), ".") // extract first part, e.g. from attribute node
 	switch node.Type() {
 	case query.NodeTypeString, query.NodeTypeDictionary, query.NodeTypeList:
 		return query.Symbol{Name: parts[0], Type: query.SymbolKindToBuiltinType(query.StrToSymbolKind(node.Type()))}
 
 	case query.NodeTypeIdentifier, query.NodeTypeAttribute:
-		return a.resolveNodeWithSymbol(doc, node, parts)
+		return a.resolveNodeWithSymbol(doc, node, parts[0])
 	}
 	return query.Symbol{}
 }
@@ -629,10 +604,10 @@ func (a *Analyzer) analyzeType(doc document.Document, node *sitter.Node) string 
 		return query.SymbolKindToBuiltinType(query.StrToSymbolKind(nodeT))
 
 	case query.NodeTypeIdentifier:
-		return a.resolveNodeWithSymbol(doc, node, []string{doc.Content(node)}).GetType()
+		return a.resolveNodeWithSymbol(doc, node, doc.Content(node)).GetType()
 
 	case query.NodeTypeAttribute:
-		return a.resolveNodeWithSymbol(doc, node, strings.Split(doc.Content(node), ".")).GetType()
+		return a.resolveNodeWithSymbol(doc, node, strings.Split(doc.Content(node), ".")[0]).GetType()
 
 	case query.NodeTypeCall:
 		fnName := doc.Content(node.ChildByFieldName("function"))
