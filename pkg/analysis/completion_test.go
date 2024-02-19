@@ -166,7 +166,7 @@ func TestCompletions(t *testing.T) {
 
 		// inside a list
 		// {d: tData{doc: "x = [os.]", char: 8}, expected: []string{"environ", "name"}, osSys: true},
-		// FIXME: probably ERROR node
+		// FIXME: due to changes in resolving ERROR node
 
 		// inside a binary expression
 		{d: tData{doc: "x = 'foo' + \nprint('')", char: 12}, expected: []string{"x", "os", "sys"}, osSys: true},
@@ -177,17 +177,17 @@ func TestCompletions(t *testing.T) {
 		{d: tData{doc: `foo(1, )`, char: 7}, expected: []string{"os", "sys"}, osSys: true},
 
 		// inside condition of a conditional
-		{d: tData{doc: "if :\n  pass\n", char: 3}, expected: []string{"os", "sys"}, osSys: true}, // ak: no completion w/o dot
+		{d: tData{doc: "if :\n  pass\n", char: 3}, expected: []string{"os", "sys"}, osSys: true},
 		//{d: tData{doc: "if os.:\n  pass\n", char: 6}, expected: []string{"environ", "name"}, osSys: true},
 		//{d: tData{doc: "if flag and os.:\n  pass\n", char: 15}, expected: []string{"environ", "name"}, osSys: true},
-		// FIXME: 2 last failing probbaly due to ERROR node
+		// FIXME: 2 last due to changes in resolving ERROR node
 
 		// other edge cases
 		// - because this gets parsed as an ERROR node at the top level, there's
 		//   no assignment expression and the variable `flag` will not be in
 		//   scope
-		// {d: tData{doc: "flag = .", char: 8}, expected: []string{"os", "sys"}, osSys: true}, // ak: due to ERROR dot isn't standalone
-		{d: tData{doc: "flag = os.", char: 10}, expected: []string{"environ", "name"}, osSys: true},
+		{d: tData{doc: "flag = "}, expected: []string{"os", "sys"}, osSys: true},
+		{d: tData{doc: "flag = os."}, expected: []string{"environ", "name"}, osSys: true},
 
 		// These should not trigger completion since the attribute expression is
 		// anchored to a function call
@@ -217,24 +217,24 @@ func TestIdentifierCompletion(t *testing.T) {
 		tData
 		expected []string
 	}{
+		// FIXME: fix resolving last dot. due to changes in ERROR node
 		{tData{doc: ""}, []string{""}},
 		{tData{doc: "os"}, []string{"os"}},
 		{tData{doc: "os."}, []string{"os", ""}},
 		{tData{doc: "os.e"}, []string{"os", "e"}},
 		{tData{doc: "os.path."}, []string{"os", "path", ""}},
 		{tData{doc: "os.path.e"}, []string{"os", "path", "e"}},
-		{tData{doc: "[os]"}, []string{"os"}},
-		{tData{doc: "[os.]"}, []string{"os", ""}},
-		{tData{doc: "[os.e]"}, []string{"os", "e"}},
-		{tData{doc: "x = [os]"}, []string{"os"}},
-		{tData{doc: "x = [os.]"}, []string{"os", ""}},
-		{tData{doc: "x = [os.e]"}, []string{"os", "e"}},
-		{tData{doc: "x = [os.path.]"}, []string{"os", "path", ""}},
-		{tData{doc: "x = [os.path.e]"}, []string{"os", "path", "e"}},
+		{tData{doc: "[os]", char: 3}, []string{"os"}},
+		//{tData{doc: "[os.]", char: 4}, []string{"os", ""}},
+		{tData{doc: "[os.e]", char: 5}, []string{"os", "e"}},
+		{tData{doc: "x = [os]", char: 7}, []string{"os"}},
+		//{tData{doc: "x = [os.]", char: 8}, []string{"os", ""}},
+		{tData{doc: "x = [os.e]", char: 9}, []string{"os", "e"}},
+		// {tData{doc: "x = [os.path.]", char: 13}, []string{"os", "path", ""}},
+		{tData{doc: "x = [os.path.e]", char: 14}, []string{"os", "path", "e"}},
 		{tData{doc: "x = "}, []string{""}},
-		{tData{doc: "if x and : pass"}, []string{""}},
+		{tData{doc: "if x and : pass", char: 9}, []string{""}},
 		//{tData{doc: "if x and os.: pass", char: 12}, []string{"os", ""}},
-		// FIXME: ERROR node
 		{tData{doc: "foo().bar.", char: 12}, []string{"foo", "bar", ""}},
 		{tData{doc: `foo(11, True, "aa").bar.baz.`}, []string{"foo", "bar", "baz", ""}},
 	}
@@ -363,11 +363,10 @@ func TestMemberCompletion(t *testing.T) {
 	}
 }
 
-func TestTypedMemberCompletion(t *testing.T) {
+func TestKnownImmediateTypesCompletion(t *testing.T) {
 	f := newFixture(t)
 	f.builtinSymbols()
 
-	// FIXME: replace by get_d, get_N, get_s
 	f.builtins.Functions["foo"] = query.Signature{
 		Name:       "foo",
 		ReturnType: "str",
@@ -385,76 +384,62 @@ func TestTypedMemberCompletion(t *testing.T) {
 		tData
 		expected []string
 	}{
-		// {tData{doc: "s = \"\"\ns.u"}, []string{"upper"}},
-		// {tData{doc: `"".u`}, []string{"upper"}},
-		// {tData{doc: `"".keys`}, []string{}},
-		// {tData{doc: `"".append`}, []string{}},
+		//
+		//zero char/only dot completion
 
-		// {tData{doc: "d = {}\nd.k"}, []string{"keys"}},
-		// {tData{doc: `{}.k`}, []string{"keys"}},
-		// {tData{doc: `{}.upper`}, []string{}},
-		// {tData{doc: `{}.append`}, []string{}},
+		// chained
+		{tData{doc: `"".`}, allStringFuncs},
+		{tData{doc: `[].`}, allListFuncs},
+		{tData{doc: `{}.`}, allDictFuncs},
 
-		// {tData{doc: `l = []\nl.a`}, []string{"append"}},
-		// {tData{doc: `[].a`}, []string{"append"}},
-		// {tData{doc: `[].keys`}, []string{}},
-		// {tData{doc: `[].upper`}, []string{}},
+		// assignment
+		{tData{doc: "s = \"\"\ns."}, allStringFuncs},
+		{tData{doc: "l = []\nl."}, allListFuncs},
+		{tData{doc: "s = {}\ns."}, allDictFuncs},
 
-		//{tData{doc: `foo().u`}, []string{"upper"}}, // FIXME
-		//{tData{doc: `bar().`}, []string{}},
+		// type propagation
+		{tData{doc: "s1 = \"\"\ns=s1\ns."}, allStringFuncs},
+		{tData{doc: "l1 = []\nl=l1\nl."}, allListFuncs},
+		{tData{doc: "d1 = {}\nd=d1\nd."}, allDictFuncs},
 
-		// // zero char/only dot completion
-		// {tData{doc: `s = ""
-		// 		s.`}, allStringFuncs},
-		// {tData{doc: `l = []
-		// 		l.`}, allListFuncs},
-		// {tData{doc: `d = {}
-		// 		d.`}, allDictFuncs},
+		//
+		// members
 
-		// // FIXME: why? should it be allFuncs?
-		// // empty string/list/dict
-		// {tData{doc: `"".`}, []string{}},
-		// {tData{doc: `[].`}, []string{}},
-		// {tData{doc: `{}.`}, []string{}},
+		// chained
+		{tData{doc: `"aa".u`}, []string{"upper"}},
+		{tData{doc: `"".keys`}, []string{}},
+		{tData{doc: `"".append`}, []string{}},
 
-		// // type propagation
-		// {tData{doc: `s = ""
-		// 		ss = s
-		// 		s.`}, allStringFuncs},
-		// {tData{doc: `l = []
-		// 		ll = l
-		// 		l.`}, allListFuncs},
-		// {tData{doc: `d = {}
-		// 		dd = d
-		// 		d.`}, allDictFuncs},
+		{tData{doc: `{}.k`}, []string{"keys"}},
+		{tData{doc: `{}.upper`}, []string{}},
+		{tData{doc: `{}.append`}, []string{}},
 
-		// // func1 -> type1, type1.func2 -> type2
-		// {tData{doc: `s = foo()
-		// 		s.`}, allStringFuncs},
-		// {tData{doc: `d = baz()
-		// 		d.`}, allDictFuncs},
-		// {tData{doc: `d = baz()
-		// 		l = d.keys()
-		// 		l.`}, allListFuncs},
-		// {tData{doc: `d = {}
-		// 		l = d.keys()
-		// 		l.`}, allListFuncs},
+		{tData{doc: `[].a`}, []string{"append"}},
+		{tData{doc: `[].keys`}, []string{}},
+		{tData{doc: `[].upper`}, []string{}},
 
-		// // FIXME: understand how this works?
-		// // nested
-		// {tData{doc: `"".upper().u`}, []string{"upper"}},
-		// {tData{doc: `"".upper().upper().u`}, []string{"upper"}},
-		// {tData{doc: `{}.keys().u`}, []string{}}, // list, not string
-		// {tData{doc: `{}.keys().a`}, []string{"append"}},
+		// assignment
+		{tData{doc: "s = \"\"\ns.u"}, []string{"upper"}},
+		{tData{doc: "l = []\nl.a"}, []string{"append"}},
+		{tData{doc: "d = {}\nd.k"}, []string{"keys"}},
 
-		// {tData{doc: `s = ""
-		// 		s.upper().u`}, []string{"upper"}},
-		// {tData{doc: `s = "".upper()
-		// 		s.u`}, []string{"upper"}},
-		// {tData{doc: `s = "".upper()
-		// 		s.upper().u`}, []string{"upper"}},
-		// {tData{doc: `d = {}
-		// 		d.keys().a`}, []string{"append"}},
+		// type propagation
+		{tData{doc: "s1 = \"\"\ns=s1\ns.u"}, []string{"upper"}},
+		{tData{doc: "l1 = []\nl=l1\nl.a"}, []string{"append"}},
+		{tData{doc: "d1 = {}\nd=d1\nd.k"}, []string{"keys"}},
+
+		//
+		// nested
+
+		// chained
+		{tData{doc: `"".upper().u`}, []string{"upper"}},
+		{tData{doc: `"".upper().upper().u`}, []string{"upper"}},
+		{tData{doc: `{}.keys().u`}, []string{}}, // list, not string
+		{tData{doc: `{}.keys().a`}, []string{"append"}},
+
+		{tData{doc: "s=\"\"\ns.upper().u"}, []string{"upper"}},
+		{tData{doc: "s1=\"\"\ns=s1.upper()\ns.u"}, []string{"upper"}},
+		{tData{doc: "s=\"\".upper()\ns.u"}, []string{"upper"}},
 	}
 
 	for _, tt := range tests {
@@ -630,8 +615,7 @@ func TestResolveSymbolIdentifiers(t *testing.T) {
 		{tData{doc: "r1 = get_C(bar(1)).cc\nr2 = r1.mmm()\nr=r2.k"}, []string{"get_C", "cc", "mmm", "k"}},
 
 		{tData{doc: "r = {}"}, []string{"Dict"}},
-		// FIXME: test nested members test and decide how to complete it? whether there are resolving to basic type
-		//{tData{doc: "r = {}.keys"}, []string{"Dict"}},
+		{tData{doc: "r = {}.keys"}, []string{"Dict", "keys"}},
 		{tData{doc: "r1 = {}\nr = r1 "}, []string{"Dict"}},
 		{tData{doc: "r1 = {}\nr = r1.k "}, []string{"Dict", "k"}},
 		{tData{doc: "r1 = {}\nr2 = r1.keys()\nr3=r2.upper()\nr=r3"}, []string{"Dict", "keys", "upper"}},

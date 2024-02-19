@@ -28,15 +28,12 @@ func (a *Analyzer) signatureInformation(doc document.Document, node *sitter.Node
 		return sigToRet(sig)
 	}
 
-	// get identifiers old-fashioned way
+	// split to identifiers and find first node
 	s := removeBrackets(fnName)
 	identifiers := strings.Split(s, ".")
 
-	pt := args.argsNode.EndPoint()
-	n := args.argsNode.Parent()
-
-	// resolve call node to completion nodes and get the first one
-	if nodes, _ := a.nodesForCompletion(doc, n, pt); len(nodes) > 0 {
+	n := args.argsNode.Parent() // REVIEW: could args.argsNode be nil?
+	if nodes, _ := a.nodesForCompletion(doc, n, args.argsNode.EndPoint()); len(nodes) > 0 {
 		n = nodes[0]
 	}
 
@@ -62,8 +59,7 @@ func (a *Analyzer) SignatureHelp(doc document.Document, pos protocol.Position) *
 	}
 
 	args := possibleCallInfo(doc, node, pt)
-	if args.fnName == "" {
-		// avoid computing function defs
+	if args.fnName == "" { // avoid computing function defs
 		return nil
 	}
 
