@@ -145,7 +145,7 @@ func (a *Analyzer) completeExpression(doc document.Document, nodes []*sitter.Nod
 		}
 	}
 
-	sym := a.resolveNode(doc, nodes[0])
+	sym := a.analyzeType(doc, nodes[0])
 	if sym.Type != "" {
 		identifiers = append([]string{sym.GetType()}, identifiers[1:]...)
 	}
@@ -492,71 +492,6 @@ func (a *Analyzer) keywordArgSymbols(fn query.Signature, args callWithArguments)
 	return symbols
 }
 
-// Find the object part of an expression that has a dot '.' immediately before the given point.
-func (a *Analyzer) findObjectExpression(nodes []*sitter.Node, pt sitter.Point) *sitter.Node {
-	// There could be multiple cases:
-	// 1. attribute node with 3 kids (identifier, dot, identifier), e.g. `bar.foo()` via hoover
-	// 2. two nodes (identifier, dot) w/o kids, with common parent, e.g. `bar.` via completion
-	// 3. two nodes (identifier, dot) w/o kids, with different parents, e.g. `baz(bar.)`` via completion
-
-	if pt.Column == 0 {
-		return nil
-	}
-
-	var dot, expr, parentNode *sitter.Node
-	searchRange := sitter.Range{StartPoint: sitter.Point{Row: pt.Row, Column: pt.Column - 1}, EndPoint: pt}
-	nodeComparisonFunc := func(n *sitter.Node) int {
-		if query.PointBeforeOrEqual(n.EndPoint(), searchRange.StartPoint) {
-			return -1
-		}
-		if n.StartPoint() == searchRange.StartPoint &&
-			n.EndPoint() == searchRange.EndPoint &&
-			n.Type() == "." {
-			return 0
-		}
-		if query.PointBeforeOrEqual(n.StartPoint(), searchRange.StartPoint) &&
-			query.PointAfterOrEqual(n.EndPoint(), searchRange.EndPoint) {
-			return 0
-		}
-		return 1
-	}
-
-	// first search in children. For example attribute node with 3 kids (identifier, dot, identifier)
-	for i := len(nodes) - 1; i >= 0; i-- {
-		parentNode = nodes[i]
-		if dot = query.FindChildNode(parentNode, nodeComparisonFunc); dot != nil {
-			break
-		}
-	}
-
-	if dot != nil {
-		expr = parentNode.PrevSibling()
-		for n := dot; n != parentNode; n = n.Parent() {
-			if n.PrevSibling() != nil {
-				expr = n.PrevSibling()
-				break
-			}
-		}
-	}
-
-	// if not found, check nodes themselves
-	if dot == nil && expr == nil {
-		for i := len(nodes) - 1; i > 0; i-- {
-			if nodeComparisonFunc(nodes[i]) == 0 {
-				dot = nodes[i]
-				expr = nodes[i-1]
-			}
-		}
-	}
-
-	if expr != nil {
-		a.logger.Debug("dot completion",
-			zap.String("dot", dot.String()),
-			zap.String("expr", expr.String()))
-	}
-	return expr
-}
-
 func (a *Analyzer) resolveNodeWithSymbol(doc document.Document, node *sitter.Node, symbol string) query.Symbol {
 	if sym, found := a.FindDefinition(doc, node, symbol); found {
 		// TODO: handle better symbols. we already compute symbols in findDefinition
@@ -581,7 +516,8 @@ func (a *Analyzer) resolveNodeWithSymbol(doc document.Document, node *sitter.Nod
 	return query.Symbol{}
 }
 
-func (a *Analyzer) resolveNode(doc document.Document, node *sitter.Node) query.Symbol {
+// Perform some rudimentary type analysis to determine the Starlark type of the node
+func (a *Analyzer) analyzeType(doc document.Document, node *sitter.Node) query.Symbol {
 	parts := strings.Split(doc.Content(node), ".") // extract first part, e.g. from attribute node
 	switch node.Type() {
 	case query.NodeTypeString, query.NodeTypeDictionary, query.NodeTypeList:
@@ -589,34 +525,14 @@ func (a *Analyzer) resolveNode(doc document.Document, node *sitter.Node) query.S
 
 	case query.NodeTypeIdentifier, query.NodeTypeAttribute:
 		return a.resolveNodeWithSymbol(doc, node, parts[0])
-	}
-	return query.Symbol{}
-}
-
-// Perform some rudimentary type analysis to determine the Starlark type of the node
-func (a *Analyzer) analyzeType(doc document.Document, node *sitter.Node) string {
-	if node == nil {
-		return ""
-	}
-	nodeT := node.Type()
-	switch nodeT {
-	case query.NodeTypeString, query.NodeTypeDictionary, query.NodeTypeList:
-		return query.SymbolKindToBuiltinType(query.StrToSymbolKind(nodeT))
-
-	case query.NodeTypeIdentifier:
-		return a.resolveNodeWithSymbol(doc, node, doc.Content(node)).GetType()
-
-	case query.NodeTypeAttribute:
-		return a.resolveNodeWithSymbol(doc, node, strings.Split(doc.Content(node), ".")[0]).GetType()
 
 	case query.NodeTypeCall:
 		fnName := doc.Content(node.ChildByFieldName("function"))
 		args := node.ChildByFieldName("arguments")
 		sig, _ := a.signatureInformation(doc, node, callWithArguments{fnName: fnName, argsNode: args})
-		_, t := query.StrToSymbolKindAndType(sig.ReturnType)
-		return t
+		return sig.Symbol()
 	}
-	return ""
+	return query.Symbol{}
 }
 
 // traverse provided symbols and all resolve given symbol iteratively to the final list of identifiers
@@ -671,12 +587,6 @@ func (a *Analyzer) builtinTypeMembers(t string) ([]query.Symbol, bool) {
 	} else {
 		return a.builtins.Members, false // REVIEW: return everything or nothing?
 	}
-}
-
-func (a *Analyzer) availableMembersForNode(doc document.Document, node *sitter.Node) []query.Symbol {
-	t := a.analyzeType(doc, node)
-	members, _ := a.builtinTypeMembers(t)
-	return members
 }
 
 func (a *Analyzer) FindDefinition(doc document.Document, node *sitter.Node, name string) (query.Symbol, bool) {

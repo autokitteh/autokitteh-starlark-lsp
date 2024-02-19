@@ -40,7 +40,7 @@ func (a *Analyzer) signatureInformation(doc document.Document, node *sitter.Node
 		n = nodes[0]
 	}
 
-	sym := a.resolveNode(doc, n)
+	sym := a.analyzeType(doc, n)
 	if len(identifiers) > 1 {
 		identifiers = append([]string{sym.GetType()}, identifiers[1:]...)
 	}
@@ -53,35 +53,6 @@ func (a *Analyzer) signatureInformation(doc document.Document, node *sitter.Node
 	}
 	return sig, sig.Name != ""
 }
-
-/*
-func (a *Analyzer) findTypedMethod(typeName string, methodName string) (query.Signature, bool) {
-	sig := query.Signature{}
-	if typeName != "" && methodName != "" {
-		if t, ok := a.builtins.Types[typeName]; ok {
-			return t.FindMethod(methodName)
-		}
-	}
-	return sig, false
-}
-
-func (a *Analyzer) findTypedMethodForNode(doc document.Document, node *sitter.Node, methodName string, args callWithArguments) (query.Signature, bool) {
-	afterDot := node.EndPoint() // assume that node passed is the object node
-	afterDot.Column += 1
-
-	if args.argsNode != nil {
-		afterDot = args.argsNode.StartPoint()
-		afterDot.Column -= uint32(len(methodName))
-		if query.PointAfterOrEqual(node.StartPoint(), afterDot) {
-			node = node.Parent()
-		}
-	}
-
-	expr := a.findObjectExpression([]*sitter.Node{node}, afterDot)
-	typeName := a.analyzeType(doc, expr)
-	return a.findTypedMethod(typeName, methodName)
-}
-*/
 
 func (a *Analyzer) SignatureHelp(doc document.Document, pos protocol.Position) *protocol.SignatureHelp {
 	pt := query.PositionToPoint(pos)

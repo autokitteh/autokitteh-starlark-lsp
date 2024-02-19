@@ -467,67 +467,6 @@ func TestTypedMemberCompletion(t *testing.T) {
 	}
 }
 
-func TestFindObjectExpression(t *testing.T) {
-	f := newFixture(t)
-	tests := []struct {
-		doc                string
-		line, char         uint32
-		expectedNodeTypes  []string
-		expectedParentTree string
-	}{
-		{
-			doc: `foo.bar()`, char: 4, expectedNodeTypes: []string{"attribute"},
-			expectedParentTree: `
-attribute (N): foo.bar
-  identifier (N): foo
-  . (U): .
-  identifier (N): bar`,
-		},
-
-		{
-			doc: `foo.`, char: 4, expectedNodeTypes: []string{"identifier", "."},
-			expectedParentTree: `
-module (N): foo.
-  ERROR (N): foo.
-    identifier (N): foo
-    . (U): .`,
-		},
-		/* FIXME: now returns only dot due to changes in leafNodes and skipping prevSiblings
-				{
-		            doc: `baz(foo.)`, char: 8, expectedNodeTypes: []string{"identifier", "."},
-		            expectedParentTree: `
-		            argument_list (N): (foo.)
-		            ( (U): (
-		                identifier (N): foo
-		                ERROR (N): .
-		                . (U): .
-		            ) (U): )`,
-		         },
-		*/
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.doc, func(t *testing.T) {
-			doc := f.MainDoc(tt.doc)
-			pos := protocol.Position{Line: tt.line, Character: tt.char}
-			pt := query.PositionToPoint(pos)
-
-			n, _ := query.NodeAtPosition(doc, pos)
-			assert.Equal(t, tt.expectedParentTree, printNodeTree(doc, n.Parent(), ""))
-			nodes, _ := f.a.nodesForCompletion(doc, n, pt) // simulate the flow
-			nodeTypes := []string{}
-			for _, n := range nodes {
-				nodeTypes = append(nodeTypes, n.Type())
-			}
-			assert.ElementsMatch(t, tt.expectedNodeTypes, nodeTypes)
-
-			objNode := f.a.findObjectExpression(nodes, pt)
-			assert.Equal(t, objNode.Type(), "identifier")
-			assert.Equal(t, doc.Content(objNode), "foo")
-		})
-	}
-}
-
 const funcsAndObjectsFixture = `
 class C1:
 	i1: int
