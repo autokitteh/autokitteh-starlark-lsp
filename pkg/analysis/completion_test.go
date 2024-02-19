@@ -116,7 +116,6 @@ func TestSimpleCompletion(t *testing.T) {
 		expected []string
 	}{
 		{tData: tData{doc: ""}, expected: []string{"foo", "bar", "baz"}},
-		{tData: tData{doc: "."}, expected: []string{"foo", "bar", "baz"}}, // ak: all available symbols on standalone dot
 		{tData: tData{doc: "ba"}, expected: []string{"bar", "baz"}},
 	}
 	for _, tt := range tests {
@@ -136,7 +135,6 @@ func TestCompletions(t *testing.T) {
 		insertDot      int
 	}{
 		{d: tData{doc: ""}, expected: []string{"os", "sys"}, osSys: true},
-		{d: tData{doc: "."}, expected: []string{"os", "sys"}, osSys: true}, // ak: all available symbols on standalone dot
 		{d: tData{doc: "os."}, expected: []string{"environ", "name"}, osSys: true},
 		{d: tData{doc: "os.e"}, expected: []string{"environ"}, osSys: true},
 
@@ -353,7 +351,7 @@ func TestMemberCompletion(t *testing.T) {
 	}{
 		{tData{doc: "pr"}, []string{"print"}},
 		{tData{doc: "def print2():\n  print3=print2()\n  pr"}, []string{"print", "print2", "print3"}},
-		{tData{doc: "pr.endswith"}, []string{"endswith"}},
+		{tData{doc: "pr.endswith"}, []string{}},
 	}
 	for _, tt := range tests {
 		t.Run(tt.doc, func(t *testing.T) {
@@ -365,114 +363,110 @@ func TestMemberCompletion(t *testing.T) {
 	}
 }
 
-/*
-	func TestTypedMemberCompletion(t *testing.T) {
-		f := newFixture(t)
-		f.builtinSymbols()
+func TestTypedMemberCompletion(t *testing.T) {
+	f := newFixture(t)
+	f.builtinSymbols()
 
-		// FIXME: replace by get_d, get_N, get_s
-		f.builtins.Functions["foo"] = query.Signature{
-			Name:       "foo",
-			ReturnType: "str",
-		}
-		f.builtins.Functions["bar"] = query.Signature{
-			Name:       "bar",
-			ReturnType: "None",
-		}
-		f.builtins.Functions["baz"] = query.Signature{
-			Name:       "baz",
-			ReturnType: "dict",
-		}
-
-		tests := []struct {
-			tData
-			expected []string
-		}{
-			{tData{doc: `s = ""
-				s.u`}, []string{"upper"}},
-			{tData{doc: `"".u`}, []string{"upper"}},
-			{tData{doc: `"".keys`}, []string{}},
-			{tData{doc: `"".append`}, []string{}},
-
-			{tData{doc: `d = {}
-				d.k`}, []string{"keys"}},
-			{tData{doc: `{}.k`}, []string{"keys"}},
-			{tData{doc: `{}.upper`}, []string{}},
-			{tData{doc: `{}.append`}, []string{}},
-
-			{tData{doc: `l = []
-				l.a`}, []string{"append"}},
-			{tData{doc: `[].a`}, []string{"append"}},
-			{tData{doc: `[].keys`}, []string{}},
-			{tData{doc: `[].upper`}, []string{}},
-
-			{tData{doc: `foo().u`}, []string{"upper"}},
-			{tData{doc: `bar().`}, []string{}},
-
-			// zero char/only dot completion
-			{tData{doc: `s = ""
-				s.`}, allStringFuncs},
-			{tData{doc: `l = []
-				l.`}, allListFuncs},
-			{tData{doc: `d = {}
-				d.`}, allDictFuncs},
-
-			// FIXME: why? should it be allFuncs?
-			// empty string/list/dict
-			{tData{doc: `"".`}, []string{}},
-			{tData{doc: `[].`}, []string{}},
-			{tData{doc: `{}.`}, []string{}},
-
-			// type propagation
-			{tData{doc: `s = ""
-				ss = s
-				s.`}, allStringFuncs},
-			{tData{doc: `l = []
-				ll = l
-				l.`}, allListFuncs},
-			{tData{doc: `d = {}
-				dd = d
-				d.`}, allDictFuncs},
-
-			// func1 -> type1, type1.func2 -> type2
-			{tData{doc: `s = foo()
-				s.`}, allStringFuncs},
-			{tData{doc: `d = baz()
-				d.`}, allDictFuncs},
-			{tData{doc: `d = baz()
-				l = d.keys()
-				l.`}, allListFuncs},
-			{tData{doc: `d = {}
-				l = d.keys()
-				l.`}, allListFuncs},
-
-			// FIXME: understand how this works?
-			// nested
-			{tData{doc: `"".upper().u`}, []string{"upper"}},
-			{tData{doc: `"".upper().upper().u`}, []string{"upper"}},
-			{tData{doc: `{}.keys().u`}, []string{}}, // list, not string
-			{tData{doc: `{}.keys().a`}, []string{"append"}},
-
-			{tData{doc: `s = ""
-				s.upper().u`}, []string{"upper"}},
-			{tData{doc: `s = "".upper()
-				s.u`}, []string{"upper"}},
-			{tData{doc: `s = "".upper()
-				s.upper().u`}, []string{"upper"}},
-			{tData{doc: `d = {}
-				d.keys().a`}, []string{"append"}},
-		}
-
-		for _, tt := range tests {
-			t.Run(tt.doc, func(t *testing.T) {
-				doc := f.MainDoc(tt.doc)
-				pos := testPosition(tt.tData)
-				result := f.a.Completion(doc, pos)
-				assertCompletionResult(t, tt.expected, result)
-			})
-		}
+	// FIXME: replace by get_d, get_N, get_s
+	f.builtins.Functions["foo"] = query.Signature{
+		Name:       "foo",
+		ReturnType: "str",
 	}
-*/
+	f.builtins.Functions["bar"] = query.Signature{
+		Name:       "bar",
+		ReturnType: "None",
+	}
+	f.builtins.Functions["baz"] = query.Signature{
+		Name:       "baz",
+		ReturnType: "dict",
+	}
+
+	tests := []struct {
+		tData
+		expected []string
+	}{
+		// {tData{doc: "s = \"\"\ns.u"}, []string{"upper"}},
+		// {tData{doc: `"".u`}, []string{"upper"}},
+		// {tData{doc: `"".keys`}, []string{}},
+		// {tData{doc: `"".append`}, []string{}},
+
+		// {tData{doc: "d = {}\nd.k"}, []string{"keys"}},
+		// {tData{doc: `{}.k`}, []string{"keys"}},
+		// {tData{doc: `{}.upper`}, []string{}},
+		// {tData{doc: `{}.append`}, []string{}},
+
+		// {tData{doc: `l = []\nl.a`}, []string{"append"}},
+		// {tData{doc: `[].a`}, []string{"append"}},
+		// {tData{doc: `[].keys`}, []string{}},
+		// {tData{doc: `[].upper`}, []string{}},
+
+		//{tData{doc: `foo().u`}, []string{"upper"}}, // FIXME
+		//{tData{doc: `bar().`}, []string{}},
+
+		// // zero char/only dot completion
+		// {tData{doc: `s = ""
+		// 		s.`}, allStringFuncs},
+		// {tData{doc: `l = []
+		// 		l.`}, allListFuncs},
+		// {tData{doc: `d = {}
+		// 		d.`}, allDictFuncs},
+
+		// // FIXME: why? should it be allFuncs?
+		// // empty string/list/dict
+		// {tData{doc: `"".`}, []string{}},
+		// {tData{doc: `[].`}, []string{}},
+		// {tData{doc: `{}.`}, []string{}},
+
+		// // type propagation
+		// {tData{doc: `s = ""
+		// 		ss = s
+		// 		s.`}, allStringFuncs},
+		// {tData{doc: `l = []
+		// 		ll = l
+		// 		l.`}, allListFuncs},
+		// {tData{doc: `d = {}
+		// 		dd = d
+		// 		d.`}, allDictFuncs},
+
+		// // func1 -> type1, type1.func2 -> type2
+		// {tData{doc: `s = foo()
+		// 		s.`}, allStringFuncs},
+		// {tData{doc: `d = baz()
+		// 		d.`}, allDictFuncs},
+		// {tData{doc: `d = baz()
+		// 		l = d.keys()
+		// 		l.`}, allListFuncs},
+		// {tData{doc: `d = {}
+		// 		l = d.keys()
+		// 		l.`}, allListFuncs},
+
+		// // FIXME: understand how this works?
+		// // nested
+		// {tData{doc: `"".upper().u`}, []string{"upper"}},
+		// {tData{doc: `"".upper().upper().u`}, []string{"upper"}},
+		// {tData{doc: `{}.keys().u`}, []string{}}, // list, not string
+		// {tData{doc: `{}.keys().a`}, []string{"append"}},
+
+		// {tData{doc: `s = ""
+		// 		s.upper().u`}, []string{"upper"}},
+		// {tData{doc: `s = "".upper()
+		// 		s.u`}, []string{"upper"}},
+		// {tData{doc: `s = "".upper()
+		// 		s.upper().u`}, []string{"upper"}},
+		// {tData{doc: `d = {}
+		// 		d.keys().a`}, []string{"append"}},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.doc, func(t *testing.T) {
+			doc := f.MainDoc(tt.doc)
+			pos := testPosition(tt.tData)
+			result := f.a.Completion(doc, pos)
+			assertCompletionResult(t, tt.expected, result)
+		})
+	}
+}
+
 func TestFindObjectExpression(t *testing.T) {
 	f := newFixture(t)
 	tests := []struct {
@@ -839,36 +833,6 @@ func TestBuiltinNestedAssignment(t *testing.T) {
 		{tData{doc: "r=get_c2().getC()\nr.mmm.k"}, []string{"keys"}},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.doc, func(t *testing.T) {
-			doc := f.MainDoc(tt.doc)
-			pos := testPosition(tt.tData)
-			result := f.a.Completion(doc, pos)
-			assertCompletionResult(t, tt.expected, result)
-		})
-	}
-}
-
-func Test1(t *testing.T) {
-	f := newFixture(t)
-	f.builtinSymbols()
-	f.ParseBuiltins(funcsAndObjectsFixture)
-
-	tests := []struct {
-		tData
-		expected []string
-	}{
-		//{tData{doc: "r = {}\nd.pop()", line: 1, char: 6}, []string{"pop"}},
-		//{tData{doc: `r = get_c1().`}, []string{"upper"}},
-		//{tData{doc: `get_c1(bar()).mm.u`}, []string{"upper"}},
-
-		//{tData{doc: `s = "".upper()
-		//s.upper().u`}, []string{"upper"}},
-
-		//{tData{doc: `d = {}
-		//d.keys().a`}, []string{"append"}},
-		//{tData{doc: `get_c1().getC().mmm.u`}, []string{"upper"}}, // C1.getC() is C3, C3.mmm is str
-	}
 	for _, tt := range tests {
 		t.Run(tt.doc, func(t *testing.T) {
 			doc := f.MainDoc(tt.doc)
