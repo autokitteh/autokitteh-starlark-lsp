@@ -38,8 +38,8 @@ func (a *Analyzer) signatureInformation(doc document.Document, node *sitter.Node
 	}
 
 	sym := a.analyzeType(doc, n)
-	if len(identifiers) > 1 {
-		identifiers = append([]string{sym.GetType()}, identifiers[1:]...)
+	if t := sym.GetType(); len(identifiers) > 1 && t != "" {
+		identifiers = append([]string{t}, identifiers[1:]...)
 	}
 	if syms, ok := a.builtinsCompletion(doc, identifiers); ok && len(syms) >= 1 {
 		for _, s := range syms { // there could be multiple matches, e.g. Dict::pop vs. popitem

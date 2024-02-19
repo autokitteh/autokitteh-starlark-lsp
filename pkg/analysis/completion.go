@@ -508,6 +508,8 @@ func (a *Analyzer) resolveNodeWithSymbol(doc document.Document, node *sitter.Nod
 			if symbols, ok := a.builtinsCompletion(doc, []string{symbol}); ok && len(symbols) == 1 {
 				return symbols[0]
 			}
+		} else if sym.Kind == protocol.SymbolKindClass {
+			return sym
 		} else if t := query.SymbolKindToBuiltinType(sym.Kind); t != "" {
 			return query.Symbol{Name: symbol, Type: t}
 		}
