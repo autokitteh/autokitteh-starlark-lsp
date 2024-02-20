@@ -174,6 +174,7 @@ type Symbol struct {
 	SelectionRange protocol.Range
 	Children       []Symbol
 	Type           string
+	Aux            interface{}
 }
 
 // builtins (e.g., `False`) have no location
@@ -186,4 +187,13 @@ func (s Symbol) GetType() string {
 		return t
 	}
 	return s.Type
+}
+
+func (s Symbol) Signature() Signature {
+	if s.Aux != nil {
+		if sig, ok := s.Aux.(*Signature); ok {
+			return *sig
+		}
+	}
+	return Signature{}
 }

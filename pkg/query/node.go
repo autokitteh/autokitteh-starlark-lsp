@@ -19,6 +19,7 @@ const (
 	NodeTypeComment             = "comment"
 	NodeTypeBlock               = "block"
 	NodeTypeERROR               = "ERROR"
+	NodeTypeDot                 = "."
 
 	FieldName       = "name"
 	FieldParameters = "parameters"

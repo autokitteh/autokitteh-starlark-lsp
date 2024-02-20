@@ -15,80 +15,40 @@ func (a *Analyzer) signatureInformation(doc document.Document, node *sitter.Node
 	var found bool
 	fnName := args.fnName
 
-	// first try to find non-typed functions, e.g. local/global scope and builtins
-	// NOTE that functions imported from builtins have a dot in their name denoting imported path, e.g. dir.file.func, but those functiosn aren't methods
+	sigToRet := func(sig query.Signature) (query.Signature, bool) {
+		return sig, sig.Name != ""
+	}
 	for n := node; n != nil && !query.IsModuleScope(doc, n); n = n.Parent() {
-		sig, found = query.Function(doc, n, fnName)
-		if found {
-			break
+		if sig, found = query.Function(doc, n, fnName); found {
+			return sigToRet(sig)
 		}
 	}
 
-	if !found {
-		sig, found = doc.Functions()[fnName]
+	if sig, found = doc.Functions()[fnName]; found {
+		return sigToRet(sig)
 	}
 
-	if !found {
-		sig, found = a.builtins.Functions[fnName]
+	// split to identifiers and find first node
+	s := removeBrackets(fnName)
+	identifiers := strings.Split(s, ".")
+
+	n := args.argsNode.Parent() // REVIEW: could args.argsNode be nil?
+	if nodes, _ := a.nodesForCompletion(doc, n, args.argsNode.EndPoint()); len(nodes) > 0 {
+		n = nodes[0]
 	}
 
-	if found {
-		return sig, sig.Name != ""
+	sym := a.analyzeType(doc, n)
+	if t := sym.GetType(); len(identifiers) > 1 && t != "" {
+		identifiers = append([]string{t}, identifiers[1:]...)
 	}
-
-	ind := strings.LastIndex(fnName, ".")
-	if ind == -1 {
-		return sig, false
-	}
-	mName := fnName[ind+1:]
-
-	// handle AK rebinded builtins -------------------------------------------
-	preDotName := fnName[:ind]
-	sym := SymbolMatching(doc.Symbols(), preDotName)
-	if akIsBindedSymbol(sym) {
-		buitinSym := SymbolMatching(a.builtins.Symbols, sym.Detail)
-		sig, _ = a.builtins.Functions[buitinSym.Name+"."+mName]
-		return sig, sig.Name != ""
-	} // ---------------------------------------------------------------------
-
-	// at last, try to find whether it's a method
-	if !found && strings.Contains(fnName, ".") {
-		sig = a.builtins.Methods[mName]
-		if sig.Name != "" {
-			method, found := a.findTypedMethodForNode(doc, node, mName, args)
-			if found {
-				sig = method
+	if syms, ok := a.builtinsCompletion(doc, identifiers); ok && len(syms) >= 1 {
+		for _, s := range syms { // there could be multiple matches, e.g. Dict::pop vs. popitem
+			if s.Name == identifiers[len(identifiers)-1] {
+				return sigToRet(s.Signature())
 			}
 		}
 	}
 	return sig, sig.Name != ""
-}
-
-func (a *Analyzer) findTypedMethod(typeName string, methodName string) (query.Signature, bool) {
-	sig := query.Signature{}
-	if typeName != "" && methodName != "" {
-		if t, ok := a.builtins.Types[typeName]; ok {
-			return t.FindMethod(methodName)
-		}
-	}
-	return sig, false
-}
-
-func (a *Analyzer) findTypedMethodForNode(doc document.Document, node *sitter.Node, methodName string, args callWithArguments) (query.Signature, bool) {
-	afterDot := node.EndPoint() // assume that node passed is the object node
-	afterDot.Column += 1
-
-	if args.argsNode != nil {
-		afterDot = args.argsNode.StartPoint()
-		afterDot.Column -= uint32(len(methodName))
-		if query.PointAfterOrEqual(node.StartPoint(), afterDot) {
-			node = node.Parent()
-		}
-	}
-
-	expr := a.findObjectExpression([]*sitter.Node{node}, afterDot)
-	typeName := a.analyzeType(doc, expr)
-	return a.findTypedMethod(typeName, methodName)
 }
 
 func (a *Analyzer) SignatureHelp(doc document.Document, pos protocol.Position) *protocol.SignatureHelp {
@@ -99,8 +59,7 @@ func (a *Analyzer) SignatureHelp(doc document.Document, pos protocol.Position) *
 	}
 
 	args := possibleCallInfo(doc, node, pt)
-	if args.fnName == "" {
-		// avoid computing function defs
+	if args.fnName == "" { // avoid computing function defs
 		return nil
 	}
 

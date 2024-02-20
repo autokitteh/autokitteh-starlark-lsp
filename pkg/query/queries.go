@@ -10,9 +10,14 @@ func LeafNodes(node *sitter.Node) []*sitter.Node {
 	nodes := []*sitter.Node{}
 	Query(node, `_ @node`, func(q *sitter.Query, match *sitter.QueryMatch) bool {
 		for _, c := range match.Captures {
-			if c.Node.Type() == NodeTypeIdentifier ||
-				(c.Node.ChildCount() == 0 &&
-					(c.Node.Parent() == nil || c.Node.Parent().Type() != NodeTypeIdentifier)) {
+
+			switch c.Node.Type() {
+			case NodeTypeIdentifier, NodeTypeDictionary, NodeTypeList, NodeTypeString:
+				nodes = append(nodes, c.Node)
+				continue
+			}
+
+			if c.Node.ChildCount() == 0 && (c.Node.Parent() == nil || c.Node.Parent().Type() != NodeTypeIdentifier) {
 				nodes = append(nodes, c.Node)
 			}
 		}

@@ -141,6 +141,19 @@ func LoadBuiltinsFromSource(ctx context.Context, contents []byte, path string) (
 		members = append(members, t.Members...)
 	}
 
+	funcMap := make(map[string]query.Signature, len(functions))
+	for _, fn := range functions {
+		funcMap[fn.Name] = fn
+	}
+	for i, s := range symbols {
+		if s.Kind == protocol.SymbolKindFunction {
+			if f, found := funcMap[s.Name]; found {
+				symbols[i].Type = f.ReturnType
+				symbols[i].Aux = &f
+			}
+		}
+	}
+
 	doc.Close()
 
 	// NewDocument returns these symbols with a location of __init__.py, which isn't helpful to anyone

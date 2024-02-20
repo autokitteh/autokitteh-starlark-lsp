@@ -36,6 +36,7 @@ type testType int
 const (
 	testTypeFunctions testType = iota
 	testTypeSymbols
+	fixtureFileName = "autokitteh-starlark.test"
 )
 
 func TestLoadBuiltinsFromFile(t *testing.T) {
@@ -285,7 +286,7 @@ func (f *fixture) Document(name string, content string) document.Document {
 }
 
 func (f *fixture) MainDoc(content string) document.Document {
-	return f.Document("Tiltfile.test", content)
+	return f.Document(fixtureFileName, content)
 }
 
 func (f *fixture) ParseBuiltins(content string) {
@@ -293,9 +294,6 @@ func (f *fixture) ParseBuiltins(content string) {
 	require.NoError(f.t, err)
 	f.a.builtins.Update(builtins)
 	f.builtins = f.a.builtins
-
-	// f.a.builtins = builtins
-	// f.builtins = builtins
 }
 
 func newFixture(t *testing.T) *fixture {

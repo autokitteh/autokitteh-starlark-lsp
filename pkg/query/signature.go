@@ -120,6 +120,8 @@ func (s Signature) Symbol() Symbol {
 			URI:   s.docURI,
 			Range: s.Range,
 		},
+		Type: s.ReturnType,
+		Aux:  &s,
 	}
 }
 
@@ -138,6 +140,7 @@ func ExtractSignature(doc DocumentContent, n *sitter.Node) Signature {
 	if rtNode := n.ChildByFieldName(FieldReturnType); rtNode != nil {
 		returnType = doc.Content(rtNode)
 	}
+	_, returnType = StrToSymbolKindAndType(returnType)
 
 	return Signature{
 		Name:       fnName,

@@ -9,14 +9,6 @@ import (
 	"github.com/autokitteh/starlark-lsp/pkg/query"
 )
 
-func names(symbols []query.Symbol) []string {
-	names := make([]string, len(symbols))
-	for i, sym := range symbols {
-		names[i] = sym.Name
-	}
-	return names
-}
-
 func TestQueryDocumentSymbols(t *testing.T) {
 	f := newQueryFixture(t, "", `
 x = a(3)
@@ -26,7 +18,7 @@ z = True
 
 	doc := f.document()
 	symbols := query.DocumentSymbols(doc)
-	assert.Equal(t, []string{"x", "y", "z"}, names(symbols))
+	assert.Equal(t, []string{"x", "y", "z"}, query.SymbolNames(symbols))
 }
 
 func TestQuerySiblingSymbols(t *testing.T) {
@@ -46,7 +38,7 @@ def start():
 	n, ok := query.NamedNodeAtPosition(doc, protocol.Position{Line: 5, Character: 2})
 	assert.True(t, ok)
 	symbols := query.SiblingSymbols(doc, n.Parent().NamedChild(0), nil)
-	assert.Equal(t, []string{"bar", "baz"}, names(symbols))
+	assert.Equal(t, []string{"bar", "baz"}, query.SymbolNames(symbols))
 }
 
 func TestSymbolsInScope(t *testing.T) {
@@ -66,7 +58,7 @@ def start():
 	n, ok := query.NamedNodeAtPosition(doc, protocol.Position{Line: 5, Character: 2})
 	assert.True(t, ok)
 	symbols := query.SymbolsInScope(doc, n)
-	assert.Equal(t, []string{"bar", "baz"}, names(symbols))
+	assert.Equal(t, []string{"bar", "baz"}, query.SymbolNames(symbols))
 }
 
 func TestSymbolsInScopeExcludesFollowingSiblings(t *testing.T) {
@@ -87,7 +79,7 @@ def start():
 	n, ok := query.NamedNodeAtPosition(doc, protocol.Position{Line: 5, Character: 2})
 	assert.True(t, ok)
 	symbols := query.SymbolsInScope(doc, n)
-	assert.Equal(t, []string{"bar", "baz"}, names(symbols))
+	assert.Equal(t, []string{"bar", "baz"}, query.SymbolNames(symbols))
 }
 
 func TestSymbolsInScopeIncludesFunctionArguments1(t *testing.T) {
@@ -104,7 +96,7 @@ def foo(a, b=True, c=None):
 	n, ok := query.NamedNodeAtPosition(doc, protocol.Position{Line: 5, Character: 2})
 	assert.True(t, ok)
 	symbols := query.SymbolsInScope(doc, n)
-	assert.Equal(t, []string{"bar", "baz", "a", "b", "c"}, names(symbols))
+	assert.Equal(t, []string{"bar", "baz", "a", "b", "c"}, query.SymbolNames(symbols))
 }
 
 func TestSymbolsInScopeIncludesFunctionArguments2(t *testing.T) {
@@ -121,7 +113,7 @@ def foo(a, b=True, c=None):
 	n, ok := query.NamedNodeAtPosition(doc, protocol.Position{Line: 4, Character: 4})
 	assert.True(t, ok)
 	symbols := query.SymbolsInScope(doc, n)
-	assert.Equal(t, []string{"d", "bar", "baz", "a", "b", "c"}, names(symbols))
+	assert.Equal(t, []string{"d", "bar", "baz", "a", "b", "c"}, query.SymbolNames(symbols))
 }
 
 func TestSymbolsInScopeDotCompletion1(t *testing.T) {
@@ -151,7 +143,7 @@ def foo():
 	assert.True(t, ok)
 	symbols := query.SymbolsInScope(doc, n)
 	assert.False(t, query.IsModuleScope(doc, n)) // bar is below highest ERROR + identifier and parameters, assume this is ERROR function definition
-	assert.Equal(t, []string{"bar"}, names(symbols))
+	assert.Equal(t, []string{"bar"}, query.SymbolNames(symbols))
 }
 
 func TestSymbolsInScopeDotCompletion2(t *testing.T) {
@@ -195,5 +187,5 @@ def foo2():
 	assert.True(t, ok)
 	symbols := query.SymbolsInScope(doc, n)
 	assert.False(t, query.IsModuleScope(doc, n))
-	assert.Equal(t, []string{"bar"}, names(symbols))
+	assert.Equal(t, []string{"bar"}, query.SymbolNames(symbols))
 }
