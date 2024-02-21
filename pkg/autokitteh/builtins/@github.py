@@ -1,44 +1,183 @@
+from typing import List, Dict
 class Timestamp:
     pass
 
-class GHWorkflowRuns:
-    total_count: int
-    workflow_runs: List[GHWorkflowRun]
+class GHLicense:
+    pass
 
-class GHWorkflowRun:
-    id: int
+class GHSecurityAndAnalysis:
+    pass
+
+
+class GHTeam:
+    pass
+
+class GHPRLinks:
+    pass
+class GHPullRequestBranch:
+    pass
+
+
+class GHSignatureVerification:
+    pass
+class GHCommitStats:
+    pass
+class GHCommitFile:
+    pass
+class GHTree:
+    pass
+
+class GHReactions:
+    pass
+class GHPullRequestLinks:
+    pass
+
+class GHCodeOfConduct:
     name: str
-    node_id: str
-    head_branch: str
-    head_sha: str
-    run_number: int
-    run_attempt: int
-    event: str
-    display_title: str
-    status: str
-    conclusion: str
-    workflow_id: int
-    check_suite_id: int
-    check_suite_node_id: str
+    key: str
     url: str
+    body: str
+
+class GHPlan:
+    name: str
+    space: int
+    collaborators: int
+    private_repos: int
+    filled_seats: int
+    seats: int
+
+class GHLabel:
+    id: int
+    url: str
+    name: str
+    color: str
+    description: str
+    default: bool
+    node_id: str
+
+class GHMatch:
+    text: str
+    indices: List[int]
+
+class GHTextMatch:
+    object_url: str
+    object_type: str
+    property: str
+    fragment: str
+    matches: List[GHMatch]
+
+class GHUser:
+    login: str
+    id: int
+    node_id: str
+    avatar_url: str
     html_url: str
-    pull_requests: List[GHPullRequest]
+    gravatar_id: str
+    name: str
+    company: str
+    blog: str
+    location: str
+    email: str
+    hireable: bool
+    bio: str
+    twitter_username: str
+    public_repos: int
+    public_gists: int
+    followers: int
+    following: int
     created_at: Timestamp
     updated_at: Timestamp
-    run_started_at: Timestamp
-    jobs_url: str
-    logs_url: str
-    check_suite_url: str
-    artifacts_url: str
-    cancel_url: str
-    rerun_url: str
-    previous_attempt_url: str
-    head_commit: GHHeadCommit
-    workflow_url: str
-    repository: GHRepository
-    head_repository: GHRepository
-    actor: GHUser
-    triggering_actor: GHUser
+    suspended_at: Timestamp
+    type: str
+    site_admin: bool
+    total_private_repos: int
+    owned_private_repos: int
+    private_gists: int
+    disk_sage: int
+    collaborators: int
+    two_factor_authentication: bool
+    plan: GHPlan
+    ldap_dn: str
+
+    url: str
+    events_url: str
+    following_url: str
+    followers_url: str
+    gists_url: str
+    organizations_url: str
+    received_events_url: str
+    repos_url: str
+    starred_url: str
+    subscriptions_url: str
+
+    text_matches: List[GHTextMatch]
+
+    permissions: Dict[str, bool]
+    role_name: str
+
+class GHOrganization:
+    login: str
+    id: int
+    node_id: str
+    avatar_url: str
+    html_url: str
+    name: str
+    company: str
+    blog: str
+    location: str
+    email: str
+    twitter_username: str
+    description: str
+    public_repos: int
+    public_gists: int
+    followers: int
+    following: int
+    created_at: Timestamp
+    updated_at: Timestamp
+    total_private_repos: int
+    owned_private_repos: int
+    private_gists: int
+    disk_usage: int
+    collaborators: int
+    billing_email: str
+    type: str
+    plan: GHPlan
+    two_factor_requirement_enabled: bool
+    is_verified: bool
+    has_organization_projects: bool
+    has_repository_projects: bool
+
+    default_repo_permission: str
+    default_repo_settings: str
+
+    members_can_create_repos: bool
+
+    members_can_create_public_repos: bool
+    members_can_create_private_repos: bool
+    members_can_create_internal_repos: bool
+
+    members_can_fork_private_repos: bool
+
+    members_allowed_repository_creation_type: str
+
+    members_can_create_pages: bool
+    members_can_create_public_pages: bool
+    members_can_create_private_pages: bool
+    web_commit_signoff_required: bool
+    advanced_security_enabled_for_new_repos: bool
+    dependabot_alerts_enabled_for_new_repos: bool
+    dependabot_security_updates_enabled_for_new_repos: bool
+    dependency_graph_enabled_for_new_repos: bool
+    secret_scanning_enabled_for_new_repos: bool
+    secret_scanning_push_protection_enabled_for_new_repos: bool
+
+    url: str
+    events_url: str
+    hooks_url: str
+    issues_url: str
+    members_url: str
+    public_members_url: str
+    repos_url: str
 
 class GHRepository:
     id: int
@@ -154,6 +293,31 @@ class GHRepository:
     role_name: str
 
 # GHPullRequest represents a GitHub pull request on a repository.
+
+class GHMilestone:
+    url: str
+    html_url: str
+    labels_url: str
+    id: int
+    number: int
+    state: str
+    title: str
+    description: str
+    creator: GHUser
+    open_issues: int
+    closed_issues: int
+    created_at: Timestamp
+    updated_at: Timestamp
+    closed_at: Timestamp
+    due_on: Timestamp
+    node_id: str
+
+class GHPullRequestAutoMerge:
+    enabled_by: GHUser
+    merge_method: str
+    commit_title: str
+    commit_message: str
+
 class GHPullRequest:
     id: int
     number: int
@@ -207,213 +371,11 @@ class GHPullRequest:
 
     active_lock_reason: str
 
-
-class Organization:
-    login: str
-    id: int
-    node_id: str
-    avatar_url: str
-    html_url: str
-    name: str
-    company: str
-    blog: str
-    location: str
-    email: str
-    twitter_username: str
-    description: str
-    public_repos: int
-    public_gists: int
-    followers: int
-    following: int
-    created_at: Timestamp
-    updated_at: Timestamp
-    total_private_repos: int
-    owned_private_repos: int
-    private_gists: int
-    disk_usage: int
-    collaborators: int
-    billing_email: str
-    type: str
-    plan: GHPlan
-    two_factor_requirement_enabled: bool
-    is_verified: bool
-    has_organization_projects: bool
-    has_repository_projects: bool
-
-    default_repo_permission: str
-    default_repo_settings: str
-
-    members_can_create_repos: bool
-
-    members_can_create_public_repos: bool
-    members_can_create_private_repos: bool
-    members_can_create_internal_repos: bool
-
-    members_can_fork_private_repos: bool
-
-    members_allowed_repository_creation_type: str
-
-    members_can_create_pages: bool
-    members_can_create_public_pages: bool
-    members_can_create_private_pages: bool
-    web_commit_signoff_required: bool
-    advanced_security_enabled_for_new_repos: bool
-    dependabot_alerts_enabled_for_new_repos: bool
-    dependabot_security_updates_enabled_for_new_repos: bool
-    dependency_graph_enabled_for_new_repos: bool
-    secret_scanning_enabled_for_new_repos: bool
-    secret_scanning_push_protection_enabled_for_new_repos: bool
-
-    url: str
-    events_url: str
-    hooks_url: str
-    issues_url: str
-    members_url: str
-    public_members_url: str
-    repos_url: str
-
-class GHUser:
-    Login: str
-    ID: int
-    NodeID: str
-    AvatarURL: str
-    HTMLURL: str
-    GravatarID: str
-    Name: str
-    Company: str
-    Blog: str
-    Location: str
-    Email: str
-    Hireable: bool
-    Bio: str
-    TwitterUsername: str
-    PublicRepos: int
-    PublicGists: int
-    Followers: int
-    Following: int
-    CreatedAt: Timestamp
-    UpdatedAt: Timestamp
-    SuspendedAt: Timestamp
-    Type: str
-    SiteAdmin: bool
-    TotalPrivateRepos: int
-    OwnedPrivateRepos: int
-    PrivateGists: int
-    DiskUsage: int
-    Collaborators: int
-    TwoFactorAuthentication: bool
-    Plan: GHPlan
-    LdapDn: str
-
-    URL: str
-    EventsURL: str
-    FollowingURL: str
-    FollowersURL: str
-    GistsURL: str
-    OrganizationsURL: str
-    ReceivedEventsURL: str
-    ReposURL: str
-    StarredURL: str
-    SubscriptionsURL: str
-
-    TextMatches: List[GHTextMatch]
-
-    Permissions: Dict[str, bool]
-    RoleName: str
-
-class GHHeadCommit:
-    message: str
-    author: GHCommitAuthor
-    url: str
-    distinct: bool
-
-    sha: str
-
-    id: str
-    tree_id: str
-    timestamp: Timestamp
-    committer: GHCommitAuthor
-    added: List[str]
-    removed: List[str]
-    modified: List[str]
-
 class GHCommitAuthor:
     date: Timestamp
     name: str
     email: str
-
     login: str
-
-class GHCodeOfConduct:
-    name: str
-    key: str
-    url: str
-    body: str
-
-class GHPlan:
-    name: str
-    space: int
-    collaborators: int
-    private_repos: int
-    filled_seats: int
-    seats: int
-
-class GHLabel:
-    id: int
-    url: str
-    name: str
-    color: str
-    description: str
-    default: bool
-    node_id: str
-
-# Match represents a single text match.
-class GHMatch:
-    text: str
-    indices: List[int]
-
-# TextMatch represents a text match for a SearchResult
-class GHTextMatch:
-    object_url: str
-    object_type: str
-    property: str
-    fragment: str
-    matches: List[GHMatch]
-
-# Milestone represents a GitHub repository milestone.
-class GHMilestone:
-    url: str
-    html_url: str
-    labels_url: str
-    id: int
-    number: int
-    state: str
-    title: str
-    description: str
-    creator: GHUser
-    open_issues: int
-    closed_issues: int
-    created_at: Timestamp
-    updated_at: Timestamp
-    closed_at: Timestamp
-    due_on: Timestamp
-    node_id: str
-
-class GHRepositoryCommit:
-    node_id: str
-    sha: str
-    commit: GHCommit
-    author: GHUser
-    committer: User
-    parents: List[GHCommit]
-    html_url: str
-    url: str
-    comments_url: str
-
-    stats: GHCommitStats
-
-    files: List[GHCommitFile]
-
 
 class GHCommit:
     sha: str
@@ -427,21 +389,47 @@ class GHCommit:
     url: str
     verification: GHSignatureVerification
     node_id: str
-
     comment_count: int
+    signing_key: OpenpgpEntity
 
-    signing_key: openpgpEntity
+class GHHeadCommit:
+    message: str
+    author: GHCommitAuthor
+    url: str
+    distinct: bool
+    sha: str
+    id: str
+    tree_id: str
+    timestamp: Timestamp
+    committer: GHCommitAuthor
+    added: List[str]
+    removed: List[str]
+    modified: List[str]
+
+
+class GHRepositoryCommit:
+    node_id: str
+    sha: str
+    commit: GHCommit
+    author: GHUser
+    committer: GHUser
+    parents: List[GHCommit]
+    html_url: str
+    url: str
+    comments_url: str
+    stats: GHCommitStats
+    files: List[GHCommitFile]
+
+class GHGitObject:
+    type: str
+    sha: str
+    url: str
 
 class GHReference:
     ref: str
     url: str
     object: GHGitObject
     node_id: str
-
-class GHGitObject:
-    type: str
-    sha: str
-    url: str
 
 class GHIssueComment:
     id: int
@@ -542,40 +530,45 @@ class GHRepositoryContent:
     download_url: str
     submodule_git_url: str
 
+class GHWorkflowRun:
+    id: int
+    name: str
+    node_id: str
+    head_branch: str
+    head_sha: str
+    run_number: int
+    run_attempt: int
+    event: str
+    display_title: str
+    status: str
+    conclusion: str
+    workflow_id: int
+    check_suite_id: int
+    check_suite_node_id: str
+    url: str
+    html_url: str
+    pull_requests: List[GHPullRequest]
+    created_at: Timestamp
+    updated_at: Timestamp
+    run_started_at: Timestamp
+    jobs_url: str
+    logs_url: str
+    check_suite_url: str
+    artifacts_url: str
+    cancel_url: str
+    rerun_url: str
+    previous_attempt_url: str
+    head_commit: GHHeadCommit
+    workflow_url: str
+    repository: GHRepository
+    head_repository: GHRepository
+    actor: GHUser
+    triggering_actor: GHUser
 
-# GHPullRequestAutoMerge represents the "auto_merge" response for a PullRequest.
-class GHPullRequestAutoMerge:
-    enabled_by: GHUser
-    merge_method: str
-    commit_title: str
-    commit_message: str
+class GHWorkflowRuns:
+    total_count: int
+    workflow_runs: List[GHWorkflowRun]
 
-
-# FIXME:
-class GHSecurityAndAnalysis:
-    pass
-class GHLicence:
-    pass
-class GHTeam:
-    pass
-class GHPullRequestBranch:
-    pass
-class GHPRLinks:
-    pass
-class GHSignatureVerification:
-    pass
-class GHCommitStats:
-    pass
-class GHTree:
-    pass
-class GHCommitAuthor:
-    pass
-class GHReactions:
-    pass
-class GHPullRequestLinks:
-    pass
-class RepositoryContent:
-    pass
 
 ####################################################################################################
 
