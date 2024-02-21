@@ -1,37 +1,5 @@
-from typing import List, Dict
 class Timestamp:
     pass
-
-class GHLicense:
-    pass
-
-class GHSecurityAndAnalysis:
-    pass
-
-
-class GHTeam:
-    pass
-
-class GHPRLinks:
-    pass
-class GHPullRequestBranch:
-    pass
-
-
-class GHSignatureVerification:
-    pass
-class GHCommitStats:
-    pass
-class GHCommitFile:
-    pass
-class GHTree:
-    pass
-
-class GHReactions:
-    pass
-class GHPullRequestLinks:
-    pass
-
 class GHCodeOfConduct:
     name: str
     key: str
@@ -178,6 +146,32 @@ class GHOrganization:
     members_url: str
     public_members_url: str
     repos_url: str
+class GHLicense:
+    key: str
+    name: str
+    url: str
+    spdx_id: str
+    html_url: str
+    featured: bool
+    description: str
+    implementation: str
+    permissions: List[str]
+    conditions: List[str]
+    limitations: List[str]
+    body: str
+
+class GHAdvancedSecurity:
+    status: str
+
+class GHSecretScanning:
+    status: str
+
+class GHSecurityAndAnalysis:
+    advanced_security: GHAdvancedSecurity
+    secret_scanning: GHSecretScanning
+    secret_scanning_push_protection: str
+    dependabot_security_updates: Dict[str, str]
+
 
 class GHRepository:
     id: int
@@ -318,6 +312,45 @@ class GHPullRequestAutoMerge:
     commit_title: str
     commit_message: str
 
+class GHTeam:
+    id: int
+    node_id: str
+    name: str
+    description: str
+    url: str
+    slug: str
+    permission: str
+    permissions: Dict[str, bool]
+    privacy: str
+    members_count: int
+    repos_count: int
+    organization: GHOrganization
+    html_url: str
+    members_url: str
+    repositories_url: str
+    parent: GHTeam
+    ldap_dn: str
+
+class GHPRLink:
+    href: str
+
+class GHPRLinks:
+    self: GHPRLink
+    html: GHPRLink
+    issue: GHPRLink
+    comments: GHPRLink
+    review_comments: GHPRLink
+    review_comment: GHPRLink
+    commits: GHPRLink
+    statuses: GHPRLink
+
+class GHPullRequestBranch:
+    label: str
+    ref: str
+    sha: str
+    repo: GHRepository
+    user: GHUser
+
 class GHPullRequest:
     id: int
     number: int
@@ -377,6 +410,31 @@ class GHCommitAuthor:
     email: str
     login: str
 
+class GHCommitStats:
+    additions: int
+    deletions: int
+    total: int
+
+class GHTreeEntry:
+    sha: str
+    path: str
+    mode: str
+    type: str
+    size: int
+    content: str
+    url: str
+
+class GHTree:
+    sha: str
+    entries: List[GHTreeEntry]
+    truncated: bool
+
+class GHSignatureVerification:
+    verified: bool
+    reason: str
+    signature: str
+    payload: str
+
 class GHCommit:
     sha: str
     author: GHCommitAuthor
@@ -406,6 +464,18 @@ class GHHeadCommit:
     removed: List[str]
     modified: List[str]
 
+class GHCommitFile:
+    sha: str
+    filename: str
+    additions: int
+    deletions: int
+    changes: int
+    status: str
+    patch: str
+    blob_url: str
+    raw_url: str
+    contents_url: str
+    previous_filename: str
 
 class GHRepositoryCommit:
     node_id: str
@@ -431,6 +501,18 @@ class GHReference:
     object: GHGitObject
     node_id: str
 
+class GHReactions:
+    total_count: int
+    plus_one: int
+    minus_one: int
+    laugh: int
+    confused: int
+    heart: int
+    hooray: int
+    rocket: int
+    eyes: int
+    url: str
+
 class GHIssueComment:
     id: int
     node_id: str
@@ -444,6 +526,12 @@ class GHIssueComment:
     url: str
     html_url: str
     issue_url: str
+
+class GHPullRequestLinks:
+    url: str
+    html_url: str
+    diff_url: str
+    patch_url: str
 
 class GHIssue:
     id: int
@@ -511,10 +599,6 @@ class GHReaction:
     node_id: str
     content: str
 
-class GHRepositoryContentResponse:
-    content: GHRepositoryContent
-    commit: GHCommit
-
 class GHRepositoryContent:
     type: str
     target: str
@@ -529,6 +613,10 @@ class GHRepositoryContent:
     html_url: str
     download_url: str
     submodule_git_url: str
+
+class GHRepositoryContentResponse:
+    content: GHRepositoryContent
+    commit: GHCommit
 
 class GHWorkflowRun:
     id: int
