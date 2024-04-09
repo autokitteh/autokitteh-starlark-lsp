@@ -64,7 +64,7 @@ builds:
     flags:
       - -mod=readonly
     ldflags:
-      - -s -w -X main.version={{.Version}}
+      - -s -w -X main.version={{.Version}} -extldflags=-static
 
 source:
   enabled: false
