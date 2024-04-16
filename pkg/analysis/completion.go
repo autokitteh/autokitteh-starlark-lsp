@@ -449,12 +449,20 @@ func (a *Analyzer) leafNodesForCompletion2(doc document.Document, node *sitter.N
 	countIdAndDots := func(nodes []*sitter.Node) int {
 		leafCount := len(nodes)
 		trailingCount := 0
+		prev := (*sitter.Node)(nil)
 		for i := 0; i < leafCount && i == trailingCount; i++ {
-			switch nodes[leafCount-1-i].Type() {
-			case query.NodeTypeIdentifier, query.NodeTypeDot,
+			n := nodes[leafCount-1-i]
+			switch n.Type() {
+			case query.NodeTypeIdentifier,
 				query.NodeTypeList, query.NodeTypeDictionary, query.NodeTypeString:
 				trailingCount++
+			case query.NodeTypeDot:
+				if prev != nil && prev.Type() != query.NodeTypeIdentifier {
+					break
+				}
+				trailingCount++
 			}
+			prev = n
 		}
 		return trailingCount
 	}

@@ -765,3 +765,25 @@ func TestBuiltinNestedAssignment(t *testing.T) {
 		})
 	}
 }
+
+// test various use cases/bugs fixes
+func TestMix(t *testing.T) {
+
+	f := newFixture(t)
+	f.osSysSymbols()
+	tests := []struct {
+		tData
+		expected []string
+	}{
+		{tData{doc: "def foo(): print()\n os."}, []string{"environ", "name"}}, // ENG-687
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.doc, func(t *testing.T) {
+			doc := f.MainDoc(tt.doc)
+			pos := testPosition(tt.tData)
+			result := f.a.Completion(doc, pos)
+			assertCompletionResult(t, tt.expected, result)
+		})
+	}
+}
