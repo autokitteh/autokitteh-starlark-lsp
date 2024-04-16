@@ -445,6 +445,15 @@ func (a *Analyzer) leafNodesForCompletion2(doc document.Document, node *sitter.N
 		}
 	}
 
+	logNodes := func(nodes []*sitter.Node, msg string) {
+		a.logger.Debug(msg,
+			zap.String("code", document.NodesToContent(doc, nodes)),
+			zap.Strings("nodes", Transform(nodes, func(n *sitter.Node) string { return n.String() })))
+	}
+
+	logNodes(leafNodes, "leaf nodes orig")
+	logNodes(leafNodesFiltered, "leaf nodes filtered")
+
 	// count number of trailing id/'.' nodes, if any
 	countIdAndDots := func(nodes []*sitter.Node) int {
 		leafCount := len(nodes)
@@ -453,11 +462,12 @@ func (a *Analyzer) leafNodesForCompletion2(doc document.Document, node *sitter.N
 		for i := 0; i < leafCount && i == trailingCount; i++ {
 			n := nodes[leafCount-1-i]
 			switch n.Type() {
-			case query.NodeTypeIdentifier,
+			case query.NodeTypeDot,
 				query.NodeTypeList, query.NodeTypeDictionary, query.NodeTypeString:
 				trailingCount++
-			case query.NodeTypeDot:
-				if prev != nil && prev.Type() != query.NodeTypeIdentifier {
+			case query.NodeTypeIdentifier:
+				// ensure dots between identifiers - ENG-687
+				if prev != nil && prev.Type() != query.NodeTypeDot {
 					break
 				}
 				trailingCount++

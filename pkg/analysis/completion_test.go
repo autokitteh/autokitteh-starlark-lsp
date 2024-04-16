@@ -775,7 +775,7 @@ func TestMix(t *testing.T) {
 		tData
 		expected []string
 	}{
-		{tData{doc: "def foo(): print()\n os."}, []string{"environ", "name"}}, // ENG-687
+		{tData{doc: "def foo():\n print()\n os."}, []string{"environ", "name"}}, // ENG-687
 	}
 
 	for _, tt := range tests {
