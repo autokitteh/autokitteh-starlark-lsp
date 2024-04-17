@@ -112,6 +112,14 @@ func (s Signature) Symbol() Symbol {
 	if len(returns) > 0 {
 		detail += fmt.Sprintf("\n## Returns\n%s", returns)
 	}
+
+	aux := s.Docs.AuxRemarkBlocks()
+	if len(aux) > 0 {
+		for _, b := range aux {
+			detail += fmt.Sprintf("\n## %s\n%s", b.Title, b.Body)
+		}
+	}
+
 	return Symbol{
 		Name:   s.Name,
 		Kind:   protocol.SymbolKindFunction,
