@@ -76,6 +76,17 @@ func (p *Parsed) RemarkBlock(title string) RemarkBlock {
 	return RemarkBlock{}
 }
 
+// AuxRemarkBlocks returns all remark blocks except "Returns" block
+func (p *Parsed) AuxRemarkBlocks() []RemarkBlock {
+	var auxBlocks []RemarkBlock
+	for _, b := range p.Remarks {
+		if b.Title != "Returns" {
+			auxBlocks = append(auxBlocks, b)
+		}
+	}
+	return auxBlocks
+}
+
 // Args is an alias for FieldsBlock("Args").Fields.
 //
 // Returns arguments accepted by a function.
