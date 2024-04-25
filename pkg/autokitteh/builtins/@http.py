@@ -115,6 +115,21 @@ def post(url: str, params: dict|None, headers: dict|None, data: string|bytes|lis
 
    Returns:
      HTTPresponse - the result of performing a HTTP request
+
+   Examples:
+     ```python
+     # POST URL + params. Print as bytes
+     print(http.put("http://httpbin.org/post?foo=bar", data="meow")).body.bytes()
+
+     # POST as form
+     print(http.put("http://httpbin.org/post", data={"foo": "bar"})).body.text()
+
+     # POST as JSON
+     print(http.put("http://httpbin.org/post", data={"foo": "bar"}, headers={"Content-Type": "application/json"})).body.text()
+
+     # POST as JSON
+     print(http.put("http://httpbin.org/post", json={"foo": "bar"})).body.json()
+     ```
    """
     pass
 
@@ -130,20 +145,5 @@ def put(url: str, params: dict|None, headers: dict|None, data: string|bytes|list
 
    Returns:
      HTTPresponse - the result of performing a HTTP request
-
-   Examples:
-     ```python
-     # POST URL + params. Print as bytes
-     print(http.put("http://httpbin.org/post?foo=bar", data="meow")).body.bytes()
-
-     # POST as form
-     print(http.put('http://httpbin.org/post", data={"foo": "bar"})).body.text()
-
-     # POST as JSON
-     print(http.put('http://httpbin.org/post", data={"foo": "bar"}, headers={"Content-Type": "application/json"})).body.text()
-
-     # POST as JSON
-     print(http.put('http://httpbin.org/post", json={"foo": "bar"})).body.json()
-     ```
    """
     pass
